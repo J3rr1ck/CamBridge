@@ -37,9 +37,35 @@ android_app {
         "services",
     ],
     
-    // Native dependencies - would be uncommented in a real implementation
-    // jni_libs: ["libcambridge_jni"],
+    // Native dependencies for JNI
+    jni_libs: ["libcambridge_jni"],
     
     // Owner
     owner: "android",
+}
+
+// JNI library for camera HAL integration
+cc_library_shared {
+    name: "libcambridge_jni",
+    vendor: true,
+    srcs: [
+        "src/main/jni/cambridge_jni.cpp",
+        "src/main/jni/virtual_camera_hal.cpp",
+    ],
+    shared_libs: [
+        "libhardware",
+        "liblog",
+        "libutils",
+        "libcamera_metadata",
+    ],
+    header_libs: [
+        "libhardware_headers",
+        "libnativehelper_header_only",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        "-Wno-unused-parameter",
+    ],
 } 

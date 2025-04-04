@@ -40,6 +40,9 @@ public class VirtualCameraManager {
     private boolean mIsRunning = false;
     private Thread mProcessingThread;
     
+    // Reference to the native camera HAL
+    private long mNativeContext = 0;
+    
     public VirtualCameraManager(Context context) {
         mContext = context;
         mHandler = new Handler(Looper.getMainLooper());
@@ -69,7 +72,10 @@ public class VirtualCameraManager {
         // 2. Register it with the Android camera service
         // 3. Handle requests from the Camera2 API
         
-        // For this demo, we'll just log what we would do
+        // Get reference to the native HAL context from VirtualCameraProviderService
+        // In a real implementation, this would be coordinated through a service connection
+        // For now, we'll rely on the initializeNative() method having been called already
+        
         Log.i(TAG, "Registered virtual camera: " + mVirtualCameraId);
         
         // Start the frame processing thread
@@ -134,6 +140,17 @@ public class VirtualCameraManager {
     }
     
     /**
+     * Sets the native context reference.
+     * This should be called by VirtualCameraProviderService after it initializes the native HAL.
+     * 
+     * @param nativeContext The native context pointer
+     */
+    public void setNativeContext(long nativeContext) {
+        mNativeContext = nativeContext;
+        Log.i(TAG, "Set native context: " + mNativeContext);
+    }
+    
+    /**
      * Starts the frame processing thread.
      */
     private void startProcessing() {
@@ -163,18 +180,19 @@ public class VirtualCameraManager {
                     processedFrame = frame.convertTo(VideoFrame.FORMAT_YUV420);
                 }
                 
-                // In a real implementation, this would:
-                // 1. Prepare the frame for the HAL
-                // 2. Notify the HAL that a new frame is available
-                // 3. Handle any camera controls from the HAL
-                
-                // For this demo, we just simulate processing
-                try {
-                    // Simulate processing time
-                    Thread.sleep(15);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+                // Push the frame to the native HAL
+                if (mNativeContext != 0) {
+                    boolean success = pushVideoFrameNative(
+                        mNativeContext,
+                        processedFrame.getDataArray(),
+                        processedFrame.width,
+                        processedFrame.height,
+                        processedFrame.format
+                    );
+                    
+                    if (!success) {
+                        Log.w(TAG, "Failed to push frame to native HAL");
+                    }
                 }
                 
                 // Release the frames
@@ -194,6 +212,24 @@ public class VirtualCameraManager {
         
         Log.i(TAG, "Frame processing thread exiting");
     }
+    
+    /**
+     * Native method to push a video frame to the HAL.
+     * 
+     * @param nativeContext Native context pointer
+     * @param frameData Frame data bytes
+     * @param width Frame width
+     * @param height Frame height
+     * @param format Frame format
+     * @return true if the frame was pushed successfully
+     */
+    private native boolean pushVideoFrameNative(
+        long nativeContext,
+        byte[] frameData,
+        int width,
+        int height,
+        int format
+    );
     
     /**
      * Creates the external camera configuration file.
@@ -249,8 +285,9 @@ public class VirtualCameraManager {
             
             // Set appropriate permissions
             configFile.setReadable(true, false);
+            configFile.setWritable(true, true);
             
-            Log.i(TAG, "Created external camera config file: " + CAMERA_CONFIG_FILE);
+            Log.i(TAG, "Created camera config file: " + CAMERA_CONFIG_FILE);
             return true;
         } catch (IOException e) {
             Log.e(TAG, "Failed to create camera config file", e);

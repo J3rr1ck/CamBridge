@@ -5,9 +5,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
@@ -32,6 +34,7 @@ public class CamBridgeService extends Service {
     private VirtualCameraManager mVirtualCameraManager;
     private Handler mHandler;
     private boolean mIsRunning = false;
+    private boolean mProviderServiceBound = false;
     
     // BroadcastReceiver for USB events
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
@@ -55,6 +58,24 @@ public class CamBridgeService extends Service {
             }
         }
     };
+    
+    // Service connection for binding to VirtualCameraProviderService
+    private final ServiceConnection mProviderServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG, "Connected to VirtualCameraProviderService");
+            mProviderServiceBound = true;
+            
+            // After successfully binding to the provider service, check for existing cameras
+            checkForExistingUsbCameras();
+        }
+        
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG, "Disconnected from VirtualCameraProviderService");
+            mProviderServiceBound = false;
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -73,8 +94,8 @@ public class CamBridgeService extends Service {
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         registerReceiver(mUsbReceiver, filter);
         
-        // Check for already connected devices
-        checkForExistingUsbCameras();
+        // Start and bind to the VirtualCameraProviderService
+        startVirtualCameraProviderService();
     }
 
     @Override
@@ -101,13 +122,37 @@ public class CamBridgeService extends Service {
         unregisterReceiver(mUsbReceiver);
         mUvcCameraManager.closeAllCameras();
         mVirtualCameraManager.stopVirtualCamera();
+        
+        // Unbind from the VirtualCameraProviderService
+        if (mProviderServiceBound) {
+            unbindService(mProviderServiceConnection);
+            mProviderServiceBound = false;
+        }
+        
         super.onDestroy();
+    }
+    
+    /**
+     * Starts and binds to the VirtualCameraProviderService
+     */
+    private void startVirtualCameraProviderService() {
+        // Start the service
+        Intent intent = new Intent(this, VirtualCameraProviderService.class);
+        startService(intent);
+        
+        // Bind to the service
+        bindService(intent, mProviderServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
     /**
      * Checks for existing UVC cameras that may already be connected
      */
     private void checkForExistingUsbCameras() {
+        if (!mProviderServiceBound) {
+            Log.w(TAG, "Provider service not bound yet, delaying camera check");
+            return;
+        }
+        
         HashMap<String, UsbDevice> deviceList = mUsbManager.getDeviceList();
         Log.i(TAG, "Found " + deviceList.size() + " USB devices");
         
@@ -125,6 +170,13 @@ public class CamBridgeService extends Service {
     private void handleUsbDeviceAttached(UsbDevice device) {
         if (!UvcCameraManager.isUvcCamera(device)) {
             Log.d(TAG, "Not a UVC camera, ignoring: " + device.getDeviceName());
+            return;
+        }
+        
+        if (!mProviderServiceBound) {
+            Log.w(TAG, "Provider service not bound yet, delaying camera handling");
+            // Retry after a short delay
+            mHandler.postDelayed(() -> handleUsbDeviceAttached(device), 1000);
             return;
         }
         

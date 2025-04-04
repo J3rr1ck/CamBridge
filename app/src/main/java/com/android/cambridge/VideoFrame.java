@@ -59,6 +59,48 @@ public class VideoFrame {
     }
     
     /**
+     * Gets the data as a byte array for direct access by JNI code.
+     * This is more efficient for JNI since ByteBuffer requires extra handling.
+     * 
+     * @return The frame data as a byte array
+     */
+    public byte[] getDataArray() {
+        if (data == null) {
+            return new byte[0];
+        }
+        
+        data.rewind();
+        if (data.hasArray() && data.arrayOffset() == 0 && data.array().length == data.remaining()) {
+            // Use the existing array if possible
+            return data.array();
+        } else {
+            // Copy to a new array
+            byte[] array = new byte[data.remaining()];
+            data.get(array);
+            data.rewind();
+            return array;
+        }
+    }
+    
+    /**
+     * Creates a VideoFrame from raw components.
+     * 
+     * @param dataArray The frame data as a byte array
+     * @param width The frame width
+     * @param height The frame height
+     * @param format The frame format (one of the FORMAT_* constants)
+     * @return A new VideoFrame with the specified parameters
+     */
+    public static VideoFrame fromRawComponents(byte[] dataArray, int width, int height, int format) {
+        VideoFrame frame = new VideoFrame();
+        frame.width = width;
+        frame.height = height;
+        frame.format = format;
+        frame.data = ByteBuffer.wrap(dataArray);
+        return frame;
+    }
+    
+    /**
      * Releases resources associated with this frame.
      */
     public void release() {

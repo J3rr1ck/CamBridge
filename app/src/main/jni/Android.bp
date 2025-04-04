@@ -1,0 +1,24 @@
+cc_library_shared {
+    name: "libcambridge_jni",
+    vendor: true,
+    srcs: [
+        "cambridge_jni.cpp",
+        "virtual_camera_hal.cpp",
+    ],
+    shared_libs: [
+        "libhardware",
+        "liblog",
+        "libutils",
+        "libcamera_metadata",
+    ],
+    header_libs: [
+        "libhardware_headers",
+        "libnativehelper_header_only",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        "-Wno-unused-parameter",
+    ],
+} 

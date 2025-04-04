@@ -29,7 +29,12 @@ public class VirtualCameraProviderService extends Service {
         // 1. Load the native HAL module
         // 2. Initialize the camera provider
         
-        // initializeNative();
+        mNativeContext = initializeNative();
+        if (mNativeContext == 0) {
+            Log.e(TAG, "Failed to initialize native HAL");
+        } else {
+            Log.i(TAG, "Native HAL initialized successfully");
+        }
     }
     
     @Override
@@ -48,7 +53,10 @@ public class VirtualCameraProviderService extends Service {
         Log.i(TAG, "Service onDestroy");
         
         // Clean up native resources
-        // cleanupNative();
+        if (mNativeContext != 0) {
+            cleanupNative(mNativeContext);
+            mNativeContext = 0;
+        }
         
         super.onDestroy();
     }
@@ -57,13 +65,13 @@ public class VirtualCameraProviderService extends Service {
      * Native method for initializing the camera provider HAL.
      * This would be implemented in C++ and loaded via JNI.
      */
-    // private native void initializeNative();
+    private native long initializeNative();
     
     /**
      * Native method for cleaning up the camera provider HAL.
      * This would be implemented in C++ and loaded via JNI.
      */
-    // private native void cleanupNative();
+    private native void cleanupNative(long nativeContext);
     
     /**
      * Example of what a camera provider binder implementation might look like.
@@ -112,9 +120,12 @@ public class VirtualCameraProviderService extends Service {
      * Static loading of the native library.
      * This would be uncommented in a real implementation.
      */
-    /*
     static {
-        System.loadLibrary("cambridge_jni");
+        try {
+            System.loadLibrary("cambridge_jni");
+            Log.i(TAG, "Loaded cambridge_jni library successfully");
+        } catch (UnsatisfiedLinkError e) {
+            Log.e(TAG, "Failed to load cambridge_jni library: " + e.getMessage());
+        }
     }
-    */
 } 
