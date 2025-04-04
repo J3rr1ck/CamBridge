@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.cambridge"
+    android:sharedUserId="android.uid.system">
+
+    <!-- Basic permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.USB_DEVICE" />
+    
+    <!-- System-level permissions -->
+    <uses-permission android:name="android.permission.SYSTEM_CAMERA" />
+    <uses-permission android:name="android.permission.MANAGE_USB" />
+    <uses-permission android:name="android.permission.RECEIVE_USB_DEVICE" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
+    <!-- Feature declarations -->
+    <uses-feature android:name="android.hardware.usb.host" />
+    <uses-feature android:name="android.hardware.camera" />
+
+    <application
+        android:label="CamBridge"
+        android:persistent="true"
+        android:directBootAware="true">
+
+        <!-- Main service that will handle USB camera detection and bridging -->
+        <service android:name=".CamBridgeService"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_device_filter" />
+        </service>
+
+        <!-- Virtual camera provider implementation -->
+        <service android:name=".VirtualCameraProviderService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_CAMERA_SERVICE">
+            <intent-filter>
+                <action android:name="android.hardware.camera2.CameraService" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest> 

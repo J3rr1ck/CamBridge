@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CamBridge</string>
+    <string name="service_name">UVC Camera Bridge Service</string>
+    <string name="virtual_camera_name">USB External Camera</string>
+    <string name="notification_title">USB Camera Connected</string>
+    <string name="notification_message">USB camera is now available to all camera apps</string>
+</resources> 

@@ -1,0 +1,45 @@
+// Android.bp for CamBridge - UVC Camera Bridge App
+
+android_app {
+    name: "CamBridge",
+    
+    // System app platform signing and installation location
+    certificate: "platform",
+    privileged: true,
+    
+    // System permissions
+    required: ["privapp_whitelist_com.android.cambridge"],
+    
+    // Java sources location
+    srcs: ["src/main/java/**/*.java"],
+    
+    // Resources
+    resource_dirs: ["src/main/res"],
+    
+    // Manifest
+    manifest: "src/main/AndroidManifest.xml",
+    
+    // Platform APIs
+    platform_apis: true,
+    
+    // SDK version requirement (Android 13)
+    sdk_version: "33",
+    
+    // Standard dependencies
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+    
+    // Own Java libraries
+    libs: [
+        "framework",
+        "framework-res",
+        "services",
+    ],
+    
+    // Native dependencies - would be uncommented in a real implementation
+    // jni_libs: ["libcambridge_jni"],
+    
+    // Owner
+    owner: "android",
+} 

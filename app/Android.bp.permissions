@@ -1,0 +1,8 @@
+// Android.bp for CamBridge permissions
+
+prebuilt_etc {
+    name: "privapp_whitelist_com.android.cambridge",
+    sub_dir: "permissions",
+    src: "privapp_whitelist_com.android.cambridge.xml",
+    filename_from_src: true,
+} 

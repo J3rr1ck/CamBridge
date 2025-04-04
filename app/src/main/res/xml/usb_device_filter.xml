@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB device filter for UVC cameras (USB Video Class) -->
+<resources>
+    <usb-device class="14" /> <!-- USB_CLASS_VIDEO = 0x0E = 14 -->
+</resources> 
