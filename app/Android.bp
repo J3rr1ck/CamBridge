@@ -52,20 +52,21 @@ cc_library_shared {
         "src/main/jni/cambridge_jni.cpp",
         "src/main/jni/virtual_camera_hal.cpp",
     ],
-    shared_libs: [
-        "libhardware",
-        "liblog",
-        "libutils",
-        "libcamera_metadata",
-    ],
-    header_libs: [
-        "libhardware_headers",
-        "libnativehelper_header_only",
-    ],
     cflags: [
         "-Wall",
         "-Werror",
         "-Wextra",
         "-Wno-unused-parameter",
+    ],
+    shared_libs: [
+        "libhardware",
+        "libutils",
+        "liblog",
+        "libcutils",
+        "libcamera_metadata",
+    ],
+    header_libs: [
+        "libhardware_headers",
+        "libnativehelper_header_only",
     ],
 } 
