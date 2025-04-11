@@ -68,6 +68,6 @@ cc_library_shared {
     header_libs: [
         "libhardware_headers",
         "libnativehelper_header_only",
-        "libcamera_headers",
+        "camera_headers",
     ],
 } 
