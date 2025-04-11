@@ -64,6 +64,7 @@ cc_library_shared {
         "liblog",
         "libcutils",
         "libcamera_metadata",
+        "libcamera2ndk",
     ],
     header_libs: [
         "libhardware_headers",
