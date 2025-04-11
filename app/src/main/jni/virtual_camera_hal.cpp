@@ -135,58 +135,8 @@ VirtualCameraHAL::~VirtualCameraHAL() {
 
 // Initialize the virtual camera HAL
 bool VirtualCameraHAL::initialize() {
-    if (mInitialized) {
-        LOGI("Virtual camera HAL already initialized");
-        return true;
-    }
-    
-    // Initialize camera module
-    hw_module_t* module = &mDeviceInfo.cameraModule.common;
-    module->tag = HARDWARE_MODULE_TAG;
-    module->module_api_version = CAMERA_MODULE_API_VERSION_1_0;
-    module->hal_api_version = HARDWARE_HAL_API_VERSION;
-    module->id = CAMERA_HARDWARE_MODULE_ID;
-    module->name = "CamBridge Virtual Camera HAL";
-    module->author = "CamBridge Project";
-    module->methods = new hw_module_methods_t();
-    module->methods->open = VirtualCameraHAL::openCameraHAL;
-    module->dso = nullptr;
-    memset(&module->reserved, 0, sizeof(module->reserved)); // Keep this one for HAL_MODULE_INFO_SYM
-    
-    // Initialize camera module functions
-    mDeviceInfo.cameraModule.get_number_of_cameras = []() -> int { return 1; }; // Only one virtual camera
-    mDeviceInfo.cameraModule.get_camera_info = VirtualCameraHAL::getCameraInfo;
-    mDeviceInfo.cameraModule.set_callbacks = VirtualCameraHAL::setCallbacks;
-    mDeviceInfo.cameraModule.open_legacy = nullptr; // Not supporting legacy cameras
-    mDeviceInfo.cameraModule.set_torch_mode = nullptr; // Not supporting torch
-    mDeviceInfo.cameraModule.init = nullptr;
-    mDeviceInfo.cameraModule.get_vendor_tag_ops = nullptr;
-    mDeviceInfo.cameraModule.reserved = {0};
-    
-    // Create virtual camera device
-    if (!createVirtualCameraDevice()) {
-        LOGE("Failed to create virtual camera device");
-        return false;
-    }
-    
-    // Setup camera static metadata
-    setupStaticMetadata();
-    
-    // Allocate frame buffers
-    if (!allocateFrameBuffers(FRAME_BUFFER_COUNT)) {
-        LOGE("Failed to allocate frame buffers");
-        return false;
-    }
-    
-    // Register camera with HAL
-    if (!registerCameraWithHAL()) {
-        LOGE("Failed to register camera with HAL");
-        return false;
-    }
-    
-    mInitialized = true;
-    LOGI("Virtual camera HAL initialized successfully");
-    return true;
+    LOGE("VirtualCameraHAL::initialize() called but should be unused!");
+    return false; // Return error if called
 }
 
 // Cleanup resources
