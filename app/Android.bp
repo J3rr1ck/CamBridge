@@ -69,5 +69,6 @@ cc_library_shared {
         "libhardware_headers",
         "libnativehelper_header_only",
         "camera_headers",
+        "libcamera2ndk_headers",
     ],
 } 
