@@ -44,6 +44,7 @@ private:
     static int openCameraHAL(const hw_module_t* module, const char* id, hw_device_t** device);
     static int closeCamera(hw_device_t* device);
     static int getCameraInfo(const camera_module_t* module, uint32_t cameraId, struct camera_info* info);
+    static int static_get_camera_info(int camera_id, struct camera_info* info);
     static int setCallbacks(const camera_module_callbacks_t* callbacks);
     
     // Camera device functions

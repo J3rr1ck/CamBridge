@@ -14,7 +14,9 @@
 #include <camera/CameraMetadata.h>
 #include <string.h> // For memset
 
-#define LOG_TAG "VirtualCameraHAL"
+// Remove local LOG_TAG definition
+// #define LOG_TAG "VirtualCameraHAL"
+
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -25,6 +27,11 @@
 
 // Static references
 static camera_module_callbacks_t* g_callbacks = nullptr;
+
+// Define the HAL module methods structure
+static hw_module_methods_t mCameraModuleMethods = {
+    .open = VirtualCameraHAL::openCameraHAL
+};
 
 // Helper to get VirtualCameraHAL instance from camera_device
 static inline VirtualCameraHAL* getHalInstance(camera_device_t* device) {
@@ -49,7 +56,6 @@ VirtualCameraHAL::VirtualCameraHAL()
     mDeviceInfo.cameraId = VIRTUAL_CAMERA_ID;
     mDeviceInfo.cameraName = "Virtual UVC Camera";
     mDeviceInfo.staticMetadata = nullptr;
-    memset(&module->reserved, 0, sizeof(module->reserved)); // Use memset
 
     // Initialize camera_module_t fields
     mDeviceInfo.cameraModule.common.tag = HARDWARE_MODULE_TAG;
@@ -59,7 +65,7 @@ VirtualCameraHAL::VirtualCameraHAL()
     mDeviceInfo.cameraModule.common.name = "Virtual Camera HAL";
     mDeviceInfo.cameraModule.common.author = "CamBridge";
     mDeviceInfo.cameraModule.common.methods = &mCameraModuleMethods;
-    memset(&mDeviceInfo.cameraModule.reserved, 0, sizeof(mDeviceInfo.cameraModule.reserved)); // Use memset
+    memset(&mDeviceInfo.cameraModule.reserved, 0, sizeof(mDeviceInfo.cameraModule.reserved));
 
     // Set methods
     mDeviceInfo.cameraModule.get_number_of_cameras = []() { return 1; }; // Lambda for simplicity
@@ -118,7 +124,7 @@ bool VirtualCameraHAL::initialize() {
     module->methods = new hw_module_methods_t();
     module->methods->open = VirtualCameraHAL::openCameraHAL;
     module->dso = nullptr;
-    memset(&module->reserved, 0, sizeof(module->reserved)); // Use memset
+    memset(&module->reserved, 0, sizeof(module->reserved)); // Keep this one for HAL_MODULE_INFO_SYM
     
     // Initialize camera module functions
     mDeviceInfo.cameraModule.get_number_of_cameras = []() -> int { return 1; }; // Only one virtual camera
@@ -213,41 +219,28 @@ bool VirtualCameraHAL::pushVideoFrame(const uint8_t* data, size_t size, int widt
 
 // Create and initialize the virtual camera device
 bool VirtualCameraHAL::createVirtualCameraDevice() {
-    // Initialize camera device
-    mDeviceInfo.cameraDevice.common.tag = HARDWARE_DEVICE_TAG;
-    mDeviceInfo.cameraDevice.common.version = CAMERA_DEVICE_API_VERSION_1_0;
-    mDeviceInfo.cameraDevice.common.module = &mDeviceInfo.cameraModule.common;
-    mDeviceInfo.cameraDevice.common.close = VirtualCameraHAL::closeCamera;
+    LOGD("Creating virtual camera device");
     
-    // Store pointer to this instance in the device's private data
-    mDeviceInfo.cameraDevice.priv = this;
+    // Initialize camera_module_t
+    // Note: Some fields were initialized in the constructor already
+    // Need to ensure all necessary function pointers are set
+    // camera_module_t* module = &mDeviceInfo.cameraModule; // Redundant if done in constructor
     
-    // Set up camera device operations
-    mDeviceInfo.cameraDevice.ops = new camera_device_ops_t();
-    mDeviceInfo.cameraDevice.ops->set_preview_window = VirtualCameraHAL::set_preview_window;
-    mDeviceInfo.cameraDevice.ops->set_callbacks = VirtualCameraHAL::set_callbacks;
-    mDeviceInfo.cameraDevice.ops->enable_msg_type = VirtualCameraHAL::enable_msg_type;
-    mDeviceInfo.cameraDevice.ops->disable_msg_type = VirtualCameraHAL::disable_msg_type;
-    mDeviceInfo.cameraDevice.ops->msg_type_enabled = VirtualCameraHAL::msg_type_enabled;
-    mDeviceInfo.cameraDevice.ops->start_preview = VirtualCameraHAL::start_preview;
-    mDeviceInfo.cameraDevice.ops->stop_preview = VirtualCameraHAL::stop_preview;
-    mDeviceInfo.cameraDevice.ops->preview_enabled = VirtualCameraHAL::preview_enabled;
-    mDeviceInfo.cameraDevice.ops->store_meta_data_in_buffers = VirtualCameraHAL::store_meta_data_in_buffers;
-    mDeviceInfo.cameraDevice.ops->start_recording = VirtualCameraHAL::start_recording;
-    mDeviceInfo.cameraDevice.ops->stop_recording = VirtualCameraHAL::stop_recording;
-    mDeviceInfo.cameraDevice.ops->recording_enabled = VirtualCameraHAL::recording_enabled;
-    mDeviceInfo.cameraDevice.ops->release_recording_frame = VirtualCameraHAL::release_recording_frame;
-    mDeviceInfo.cameraDevice.ops->auto_focus = VirtualCameraHAL::auto_focus;
-    mDeviceInfo.cameraDevice.ops->cancel_auto_focus = VirtualCameraHAL::cancel_auto_focus;
-    mDeviceInfo.cameraDevice.ops->take_picture = VirtualCameraHAL::take_picture;
-    mDeviceInfo.cameraDevice.ops->cancel_picture = VirtualCameraHAL::cancel_picture;
-    mDeviceInfo.cameraDevice.ops->set_parameters = VirtualCameraHAL::set_parameters;
-    mDeviceInfo.cameraDevice.ops->get_parameters = VirtualCameraHAL::get_parameters;
-    mDeviceInfo.cameraDevice.ops->put_parameters = VirtualCameraHAL::put_parameters;
-    mDeviceInfo.cameraDevice.ops->send_command = VirtualCameraHAL::send_command;
-    mDeviceInfo.cameraDevice.ops->release = VirtualCameraHAL::release;
-    mDeviceInfo.cameraDevice.ops->dump = VirtualCameraHAL::dump;
+    // Initialize camera_device_t
+    camera_device_t* device = &mDeviceInfo.cameraDevice;
+    memset(device, 0, sizeof(camera_device_t));
     
+    device->common.tag = HARDWARE_DEVICE_TAG;
+    device->common.version = CAMERA_DEVICE_API_VERSION_1_0; // Using HAL1 device API
+    device->common.module = (hw_module_t*)&mDeviceInfo.cameraModule;
+    device->common.close = closeCamera; // Assign the static close function
+    
+    // Assign HAL1 device operations
+    device->ops = &mCameraOps; // Use defined ops struct
+    
+    device->priv = this; // Store pointer to the VirtualCameraHAL instance
+
+    LOGD("Virtual camera device created");
     return true;
 }
 
@@ -506,6 +499,7 @@ int VirtualCameraHAL::getCameraInfo(const camera_module_t* module, uint32_t came
 }
 
 int VirtualCameraHAL::setCallbacks(const camera_module_callbacks_t* callbacks) {
+    LOGD("setCallbacks called");
     if (callbacks == nullptr) {
         return -EINVAL;
     }
@@ -810,3 +804,4 @@ int VirtualCameraHAL::static_get_camera_info(int camera_id, struct camera_info* 
 
     LOGD("static_get_camera_info called for camera %d", camera_id);
     return 0; // Success 
+} 
