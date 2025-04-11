@@ -39,7 +39,7 @@ public:
     // Push a video frame from Java to the native side
     bool pushVideoFrame(const uint8_t* data, size_t size, int width, int height, int format);
     
-private:
+    // --- Moved Static HAL & Device functions to public --- 
     // HAL module functions
     static int openCameraHAL(const hw_module_t* module, const char* id, hw_device_t** device);
     static int closeCamera(hw_device_t* device);
@@ -47,7 +47,7 @@ private:
     static int static_get_camera_info(int camera_id, struct camera_info* info);
     static int setCallbacks(const camera_module_callbacks_t* callbacks);
     
-    // Camera device functions
+    // Camera device functions (HAL1 Ops)
     static int set_preview_window(struct camera_device* device, struct preview_stream_ops* window);
     static void set_callbacks(struct camera_device* device, camera_notify_callback notify_cb,
                              camera_data_callback data_cb, camera_data_timestamp_callback data_cb_timestamp,
@@ -73,7 +73,9 @@ private:
     static int send_command(struct camera_device* device, int32_t cmd, int32_t arg1, int32_t arg2);
     static void release(struct camera_device* device);
     static int dump(struct camera_device* device, int fd);
-    
+    // --- End Moved functions --- 
+
+private:
     // Helper methods
     bool createVirtualCameraDevice();
     void setupStaticMetadata();
