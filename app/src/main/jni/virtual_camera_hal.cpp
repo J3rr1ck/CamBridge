@@ -33,6 +33,33 @@ static hw_module_methods_t mCameraModuleMethods = {
     .open = VirtualCameraHAL::openCameraHAL
 };
 
+// Define the HAL device operations structure
+static camera_device_ops_t mCameraOps = {
+    .set_preview_window = VirtualCameraHAL::set_preview_window,
+    .set_callbacks = VirtualCameraHAL::set_callbacks,
+    .enable_msg_type = VirtualCameraHAL::enable_msg_type,
+    .disable_msg_type = VirtualCameraHAL::disable_msg_type,
+    .msg_type_enabled = VirtualCameraHAL::msg_type_enabled,
+    .start_preview = VirtualCameraHAL::start_preview,
+    .stop_preview = VirtualCameraHAL::stop_preview,
+    .preview_enabled = VirtualCameraHAL::preview_enabled,
+    .store_meta_data_in_buffers = VirtualCameraHAL::store_meta_data_in_buffers,
+    .start_recording = VirtualCameraHAL::start_recording,
+    .stop_recording = VirtualCameraHAL::stop_recording,
+    .recording_enabled = VirtualCameraHAL::recording_enabled,
+    .release_recording_frame = VirtualCameraHAL::release_recording_frame,
+    .auto_focus = VirtualCameraHAL::auto_focus,
+    .cancel_auto_focus = VirtualCameraHAL::cancel_auto_focus,
+    .take_picture = VirtualCameraHAL::take_picture,
+    .cancel_picture = VirtualCameraHAL::cancel_picture,
+    .set_parameters = VirtualCameraHAL::set_parameters,
+    .get_parameters = VirtualCameraHAL::get_parameters,
+    .put_parameters = VirtualCameraHAL::put_parameters,
+    .send_command = VirtualCameraHAL::send_command,
+    .release = VirtualCameraHAL::release,
+    .dump = VirtualCameraHAL::dump,
+};
+
 // Helper to get VirtualCameraHAL instance from camera_device
 static inline VirtualCameraHAL* getHalInstance(camera_device_t* device) {
     return reinterpret_cast<VirtualCameraHAL*>(device->priv);
