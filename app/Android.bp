@@ -48,7 +48,6 @@ android_app {
 // JNI library for camera HAL integration
 cc_library_shared {
     name: "libcambridge_jni",
-    vendor: true,
     srcs: [
         "src/main/jni/cambridge_jni.cpp",
         "src/main/jni/virtual_camera_hal.cpp",
