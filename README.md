@@ -98,17 +98,17 @@ Since this is a system-level application requiring platform signing and native c
 
 ## TODO / Future Improvements
 
-- **HAL Migration:** Migrate the native implementation from Camera HAL1 to a modern version (HAL3+ using AIDL or HIDL) for better performance, features, and compatibility with the Camera2 API
-- **Runtime Testing & Debugging:** Thoroughly test and debug the entire pipeline on target hardware. Verify frame timestamps, buffer handling, and callback invocation
-- **UVC Feature Support:** Implement handling for more UVC controls (brightness, contrast, focus, zoom, etc.) and expose them through the HAL
-- **Performance Optimization:** Profile the frame processing pipeline (USB read -> JNI -> HAL delivery) and optimize bottlenecks. Implement efficient format conversion if needed (e.g., MJPEG -> NV21/YV12)
-- **Multi-Camera Support:** Enhance logic to correctly handle multiple connected UVC devices
-- **Dynamic Configuration:** Improve virtual camera configuration based on actual UVC device capabilities reported via USB descriptors, rather than relying solely on a static XML
-- **Concurrency & Threading:** Review and ensure robust thread safety in the JNI layer, especially for buffer management and callbacks
-- **Camera2 Compliance:** Test extensively with Camera2 API test suites and various applications to ensure the virtual HAL implementation is compliant
-- **SELinux:** Review and refine SELinux policies for stricter access control if required
-- **Error Handling:** Improve error handling and reporting throughout the application and JNI layer (e.g., USB disconnects, unsupported formats, HAL errors)
-- **Code Quality:** Refactor native C++ code, improve logging, and add comments where necessary
+- [ ] **HAL Migration:** Migrate the native implementation from Camera HAL1 to a modern version (HAL3+ using AIDL or HIDL) for better performance, features, and compatibility with the Camera2 API.
+- [ ] **Runtime Testing & Debugging:** Thoroughly test and debug the entire pipeline on target hardware. Verify frame timestamps, buffer handling, and callback invocation.
+- [ ] **UVC Feature Support:** Implement handling for more UVC controls (brightness, contrast, focus, zoom, etc.) and expose them through the HAL.
+- [ ] **Performance Optimization:** Profile the frame processing pipeline (USB read -> JNI -> HAL delivery) and optimize bottlenecks. Implement efficient format conversion if needed (e.g., MJPEG -> NV21/YV12).
+- [ ] **Multi-Camera Support:** Enhance logic to correctly handle multiple connected UVC devices.
+- [ ] **Dynamic Configuration:** Improve virtual camera configuration based on actual UVC device capabilities reported via USB descriptors, rather than relying solely on a static XML.
+- [ ] **Concurrency & Threading:** Review and ensure robust thread safety in the JNI layer, especially for buffer management and callbacks.
+- [ ] **Camera2 Compliance:** Test extensively with Camera2 API test suites and various applications to ensure the virtual HAL implementation is compliant.
+- [ ] **SELinux:** Review and refine SELinux policies for stricter access control if required.
+- [ ] **Error Handling:** Improve error handling and reporting throughout the application and JNI layer (e.g., USB disconnects, unsupported formats, HAL errors).
+- [ ] **Code Quality:** Refactor native C++ code, improve logging, and add comments where necessary.
 
 ## Limitations
 
