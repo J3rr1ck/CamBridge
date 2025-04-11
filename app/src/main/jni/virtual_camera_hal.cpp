@@ -9,14 +9,15 @@
 #include <cstring>
 #include <chrono>
 #include <thread>
+#include <hardware/camera_common.h>
+#include <hardware/hardware.h>
+#include <camera/CameraMetadata.h>
+#include <string.h> // For memset
 
 #define LOG_TAG "VirtualCameraHAL"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-
-// Camera HAL module ID
-#define CAMERA_HARDWARE_MODULE_ID "com.android.cambridge.camera"
 
 // Virtual camera parameters
 #define VIRTUAL_CAMERA_ID 99  // Using a high ID to avoid conflicts
@@ -32,21 +33,66 @@ static inline VirtualCameraHAL* getHalInstance(camera_device_t* device) {
 
 // Constructor
 VirtualCameraHAL::VirtualCameraHAL()
-    : mInitialized(false),
-      mPreviewEnabled(false),
-      mRecordingEnabled(false),
-      mMsgTypeEnabled(0),
-      mNotifyCb(nullptr),
+    : mNotifyCb(nullptr),
       mDataCb(nullptr),
       mDataCbTimestamp(nullptr),
       mRequestMemory(nullptr),
-      mCallbackCookie(nullptr) {
-    
+      mCallbackCookie(nullptr),
+      mInitialized(false),
+      mPreviewEnabled(false),
+      mRecordingEnabled(false),
+      mMsgTypeEnabled(0) // Correct order
+{
+    LOGD("VirtualCameraHAL constructor");
     // Initialize device info
     memset(&mDeviceInfo, 0, sizeof(mDeviceInfo));
     mDeviceInfo.cameraId = VIRTUAL_CAMERA_ID;
     mDeviceInfo.cameraName = "Virtual UVC Camera";
     mDeviceInfo.staticMetadata = nullptr;
+    memset(&module->reserved, 0, sizeof(module->reserved)); // Use memset
+
+    // Initialize camera_module_t fields
+    mDeviceInfo.cameraModule.common.tag = HARDWARE_MODULE_TAG;
+    mDeviceInfo.cameraModule.common.module_api_version = CAMERA_MODULE_API_VERSION_2_4; // Example version
+    mDeviceInfo.cameraModule.common.hal_api_version = HARDWARE_HAL_API_VERSION;
+    mDeviceInfo.cameraModule.common.id = CAMERA_HARDWARE_MODULE_ID; // Use standard ID
+    mDeviceInfo.cameraModule.common.name = "Virtual Camera HAL";
+    mDeviceInfo.cameraModule.common.author = "CamBridge";
+    mDeviceInfo.cameraModule.common.methods = &mCameraModuleMethods;
+    memset(&mDeviceInfo.cameraModule.reserved, 0, sizeof(mDeviceInfo.cameraModule.reserved)); // Use memset
+
+    // Set methods
+    mDeviceInfo.cameraModule.get_number_of_cameras = []() { return 1; }; // Lambda for simplicity
+    mDeviceInfo.cameraModule.get_camera_info = VirtualCameraHAL::static_get_camera_info; // Use wrapper
+    mDeviceInfo.cameraModule.set_callbacks = VirtualCameraHAL::setCallbacks;
+    mDeviceInfo.cameraModule.open_legacy = nullptr; // Not supporting legacy cameras
+    mDeviceInfo.cameraModule.set_torch_mode = nullptr; // Not supporting torch
+    mDeviceInfo.cameraModule.init = nullptr;
+    mDeviceInfo.cameraModule.get_vendor_tag_ops = nullptr;
+
+    // Create virtual camera device
+    if (!createVirtualCameraDevice()) {
+        LOGE("Failed to create virtual camera device");
+        return;
+    }
+    
+    // Setup camera static metadata
+    setupStaticMetadata();
+    
+    // Allocate frame buffers
+    if (!allocateFrameBuffers(FRAME_BUFFER_COUNT)) {
+        LOGE("Failed to allocate frame buffers");
+        return;
+    }
+    
+    // Register camera with HAL
+    if (!registerCameraWithHAL()) {
+        LOGE("Failed to register camera with HAL");
+        return;
+    }
+    
+    mInitialized = true;
+    LOGI("Virtual camera HAL initialized successfully");
 }
 
 // Destructor
@@ -72,7 +118,7 @@ bool VirtualCameraHAL::initialize() {
     module->methods = new hw_module_methods_t();
     module->methods->open = VirtualCameraHAL::openCameraHAL;
     module->dso = nullptr;
-    module->reserved = {0};
+    memset(&module->reserved, 0, sizeof(module->reserved)); // Use memset
     
     // Initialize camera module functions
     mDeviceInfo.cameraModule.get_number_of_cameras = []() -> int { return 1; }; // Only one virtual camera
@@ -432,7 +478,8 @@ int VirtualCameraHAL::closeCamera(hw_device_t* device) {
 }
 
 int VirtualCameraHAL::getCameraInfo(const camera_module_t* module, uint32_t cameraId, struct camera_info* info) {
-    if (info == nullptr) {
+    LOGD("getCameraInfo called for camera %d", cameraId);
+    if (!module || !info) {
         return -EINVAL;
     }
     
@@ -742,4 +789,24 @@ void VirtualCameraHAL::release(struct camera_device* device) {
 int VirtualCameraHAL::dump(struct camera_device* device, int fd) {
     // We don't support dumping in this implementation
     return 0;
-} 
+}
+
+// Static wrapper for get_camera_info
+int VirtualCameraHAL::static_get_camera_info(int camera_id, struct camera_info* info) {
+    // We need access to the module or assume properties for camera_id 0
+    // For simplicity, assuming camera_id is always 0 for this HAL
+    if (camera_id != 0) {
+        return -EINVAL; // Invalid camera ID
+    }
+    // Call the original function or reconstruct info here
+    // Since the original needs 'module', which we don't have here,
+    // we'll populate the 'info' struct directly for camera 0.
+    info->facing = CAMERA_FACING_BACK; // Example: virtual camera faces back
+    info->orientation = 0; // Example: landscape orientation
+    info->device_version = CAMERA_DEVICE_API_VERSION_1_0; // Using HAL1 device version for example
+    // The static_camera_characteristics field is for HAL3+, leave null for HAL1
+    info->static_camera_characteristics = nullptr;
+    // info->resource_cost and info->conflicting_devices might need specific values
+
+    LOGD("static_get_camera_info called for camera %d", camera_id);
+    return 0; // Success 

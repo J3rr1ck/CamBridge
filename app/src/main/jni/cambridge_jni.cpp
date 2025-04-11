@@ -13,14 +13,17 @@
 static JavaVM* gJavaVM = nullptr;
 static VirtualCameraHAL* gVirtualCameraHAL = nullptr;
 
-// Helper to get the JNI environment
+// Function to get JNIEnv (no longer needed)
+/*
 static JNIEnv* getJNIEnv() {
     JNIEnv* env = nullptr;
-    if (gJavaVM->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+    if (g_jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        ALOGE("Failed to get JNIEnv");
         return nullptr;
     }
     return env;
 }
+*/
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_android_cambridge_VirtualCameraProviderService_initializeNative(
