@@ -1,0 +1,298 @@
+#include "hal_camera_device.h"
+#include "hal_camera_session.h" // Will be created next
+#include "hal_camera_provider.h" 
+#include <utils/Log.h>
+#include <camera_metadata_tags.h> // For ANDROID_* metadata tags
+#include <hardware/camera3.h>     // For camera3_device_ops_t::construct_default_request_settings
+
+// Define a LOG_TAG for this file
+#undef LOG_TAG
+#define LOG_TAG "HalCameraDevice"
+
+namespace android {
+namespace cambridge {
+
+// Example: Define some basic camera characteristics
+const int32_t kDefaultWidth = 640;
+const int32_t kDefaultHeight = 480;
+// HAL_PIXEL_FORMAT_YCBCR_420_888 is typically from system/core/include/system/graphics.h
+// For AIDL, this is mapped to aidl::android::hardware::graphics::common::PixelFormat::YCBCR_420_888
+const auto kDefaultPixelFormat = aidl::android::hardware::graphics::common::PixelFormat::YCBCR_420_888;
+const int32_t kDefaultFps = 30;
+
+HalCameraDevice::HalCameraDevice(const std::string& cameraId, HalCameraProvider* parentProvider)
+    : mCameraId(cameraId), mParentProvider(parentProvider), mCurrentSession(nullptr) {
+    ALOGI("HalCameraDevice instance created for ID: %s", mCameraId.c_str());
+    initializeCharacteristics();
+}
+
+HalCameraDevice::~HalCameraDevice() {
+    ALOGI("HalCameraDevice instance destroyed for ID: %s", mCameraId.c_str());
+    std::shared_ptr<HalCameraSession> sessionToClose;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        sessionToClose = mCurrentSession;
+        mCurrentSession.reset(); // Release our reference
+    }
+
+    if (sessionToClose) {
+        // The close method of HalCameraSession might try to call back into HalCameraDevice::closeSession
+        // which would re-lock mLock. To avoid potential deadlocks or re-entrancy issues if
+        // HalCameraSession::close() is complex, we call it outside the lock.
+        // However, HalCameraSession::close() is designed to be simple and primarily notify its callback.
+        // For safety, ensure HalCameraSession::close() doesn't call back in a way that re-locks mLock here.
+        // A typical pattern is that HalCameraSession::close() signals its client (CameraService)
+        // and then the client releases its reference to HalCameraSession.
+        // Our HalCameraSession::close() implementation will be simple.
+         sessionToClose->close(); 
+    }
+
+    if (mParentProvider) {
+        mParentProvider->onDeviceClosed(mCameraId);
+    }
+}
+
+void HalCameraDevice::initializeCharacteristics() {
+    ALOGI("Initializing static characteristics for camera %s", mCameraId.c_str());
+    ::android::CameraMetadata chars; 
+
+    uint8_t lensFacing = ANDROID_LENS_FACING_EXTERNAL;
+    chars.update(ANDROID_LENS_FACING, &lensFacing, 1);
+
+    int32_t sensorOrientation = 0; // Default, UVC cameras might not report this easily
+    chars.update(ANDROID_SENSOR_ORIENTATION, &sensorOrientation, 1);
+    
+    // INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED is a safe bet for virtual/UVC cameras
+    uint8_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
+    chars.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hardwareLevel, 1);
+
+    std::vector<int32_t> streamConfigs;
+    streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
+    streamConfigs.push_back(kDefaultWidth);
+    streamConfigs.push_back(kDefaultHeight);
+    streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
+    
+    // Example for a second resolution (if supported)
+    // streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
+    // streamConfigs.push_back(1280); 
+    // streamConfigs.push_back(720);
+    // streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
+
+    chars.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, streamConfigs.data(), streamConfigs.size());
+
+    std::vector<int64_t> minFrameDurations;
+    minFrameDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    minFrameDurations.push_back(kDefaultWidth);
+    minFrameDurations.push_back(kDefaultHeight);
+    minFrameDurations.push_back(1000000000LL / kDefaultFps); 
+    chars.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minFrameDurations.data(), minFrameDurations.size());
+    
+    // Stall durations (0 for no stall)
+    std::vector<int64_t> stallDurations;
+    stallDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    stallDurations.push_back(kDefaultWidth);
+    stallDurations.push_back(kDefaultHeight);
+    stallDurations.push_back(0); // No stall
+    chars.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, stallDurations.data(), stallDurations.size());
+
+
+    uint8_t requestCapabilities[] = {ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE};
+    chars.update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, requestCapabilities, sizeof(requestCapabilities));
+    
+    int32_t partialResultCount = 1; 
+    chars.update(ANDROID_REQUEST_PARTIAL_RESULT_COUNT, &partialResultCount, 1);
+
+    uint8_t pipelineMaxDepth = 4; 
+    chars.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, &pipelineMaxDepth, 1);
+    
+    int32_t syncMaxLatency = ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL;
+    chars.update(ANDROID_SYNC_MAX_LATENCY, &syncMaxLatency, 1);
+
+    // Available request keys (none for now, beyond mandatory)
+    // Available result keys (none for now, beyond mandatory)
+    // Available characteristics keys (populated above)
+
+    camera_metadata_t* raw_metadata = chars.release();
+    if (!raw_metadata) {
+        ALOGE("Failed to release metadata from CameraMetadata helper.");
+        // Handle error, perhaps by trying to create a minimal valid metadata
+        return;
+    }
+    mStaticCharacteristics.metadata.reset(raw_metadata); 
+     if (!mStaticCharacteristics.metadata) {
+        ALOGE("Failed to set metadata in mStaticCharacteristics after release.");
+    }
+    ALOGI("Static characteristics initialized for %s. Entry count: %zu", mCameraId.c_str(), 
+          get_camera_metadata_entry_count(mStaticCharacteristics.metadata.get()));
+}
+
+ndk::ScopedAStatus HalCameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_return) {
+    ALOGI("getCameraCharacteristics called for camera %s", mCameraId.c_str());
+    if (!_aidl_return) {
+        ALOGE("getCameraCharacteristics: _aidl_return is null");
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (!mStaticCharacteristics.metadata) {
+        ALOGE("getCameraCharacteristics: mStaticCharacteristics.metadata is null for camera %s", mCameraId.c_str());
+        // This indicates an initialization failure.
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+    }
+
+    camera_metadata_t* cloned_metadata = clone_camera_metadata(mStaticCharacteristics.metadata.get());
+    if (!cloned_metadata) {
+        ALOGE("Failed to clone camera characteristics for camera %s", mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+    }
+
+    // The _aidl_return is of type ::aidl::android::hardware::camera::common::CameraMetadata
+    // which is a wrapper around camera_metadata_t*. Its 'metadata' field is a unique_ptr.
+    _aidl_return->metadata.reset(cloned_metadata); // _aidl_return takes ownership
+
+    ALOGI("Returning characteristics for camera %s. Metadata size: %zu bytes.", 
+        mCameraId.c_str(), get_camera_metadata_size(cloned_metadata));
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraDevice::open(const std::shared_ptr<ICameraDeviceCallback>& in_callback,
+                                       std::shared_ptr<ICameraDeviceSession>* _aidl_return) {
+    ALOGI("open called for camera %s", mCameraId.c_str());
+    std::lock_guard<std::mutex> lock(mLock);
+
+    if (mCurrentSession) {
+        ALOGE("Camera %s is already open. Current session pointer: %p", mCameraId.c_str(), mCurrentSession.get());
+        // According to AIDL spec, if camera is in use, return ERROR_CAMERA_IN_USE
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_IN_USE);
+    }
+
+    if (in_callback == nullptr) {
+        ALOGE("Framework callback (ICameraDeviceCallback) is null in open()!");
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT); // Or EX_NULL_POINTER
+    }
+
+    // Create the session. The HalCameraSession constructor will need the ICameraDeviceCallback.
+    auto session = ndk::SharedRefBase::make<HalCameraSession>(mCameraId, this, in_callback);
+    if (!session) {
+        ALOGE("Failed to create HalCameraSession for %s", mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+    }
+    
+    // If HalCameraSession has an initialize method that can fail:
+    // if (!session->initialize()) { // Assuming bool return for success
+    //     ALOGE("Failed to initialize HalCameraSession for %s", mCameraId.c_str());
+    //     return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+    // }
+
+    mCurrentSession = session;
+    *_aidl_return = mCurrentSession;
+    ALOGI("Camera %s opened successfully. New session pointer: %p", mCameraId.c_str(), mCurrentSession.get());
+    return ndk::ScopedAStatus::ok();
+}
+
+void HalCameraDevice::closeSession() {
+    ALOGI("HalCameraDevice::closeSession called for camera %s by its session.", mCameraId.c_str());
+    std::lock_guard<std::mutex> lock(mLock);
+    if (mCurrentSession) {
+        // This indicates the session is done and HalCameraDevice can forget about it.
+        // The actual HalCameraSession object might still exist if CameraService holds a reference.
+        mCurrentSession.reset();
+        ALOGI("Reference to HalCameraSession cleared for camera %s.", mCameraId.c_str());
+    } else {
+        ALOGW("HalCameraDevice::closeSession called but no current session for %s.", mCameraId.c_str());
+    }
+}
+
+
+ndk::ScopedAStatus HalCameraDevice::setTorchMode(bool /*in_enabled*/) {
+    // ALOGI("setTorchMode called for camera %s, enabled: %d. Not supported.", mCameraId.c_str(), in_enabled);
+    // As per AIDL spec, if torch mode is not supported, this should return ERROR_ILLEGAL_ARGUMENT.
+    // However, some interpretations suggest ERROR_CAMERA_DEVICE if it's a permanent lack of feature.
+    // Let's use a more specific error if available, or a general one.
+    // The ICameraProvider's isSetTorchModeAvailable should return false for this camera.
+    // If that's the case, CameraService might not even call this.
+    // For now, let's assume it can be called and we should indicate it's not supported.
+    return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_INVALID_OPERATION); // Or ERROR_ILLEGAL_ARGUMENT
+}
+
+ndk::ScopedAStatus HalCameraDevice::dumpState(const ::ndk::ScopedFileDescriptor& in_fd) {
+    ALOGI("dumpState called for camera %s.", mCameraId.c_str());
+    if (in_fd.get() < 0) {
+        ALOGE("Invalid file descriptor for dumpState.");
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    
+    std::string dumpString = "HalCameraDevice ID: " + mCameraId + "\n";
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        dumpString += "  Session active: " + std::string(mCurrentSession ? "yes" : "no") + "\n";
+        if (mCurrentSession) {
+            // Ideally, we'd call a dump method on the session too.
+            // For now, just indicate its presence.
+            dumpString += "  Session ptr: " + std::to_string(reinterpret_cast<uintptr_t>(mCurrentSession.get())) + "\n";
+        }
+    }
+    dumpString += "  Static Characteristics entry count: " + 
+                  std::to_string(mStaticCharacteristics.metadata ? get_camera_metadata_entry_count(mStaticCharacteristics.metadata.get()) : 0) + "\n";
+
+    if (write(in_fd.get(), dumpString.c_str(), dumpString.length()) < 0) {
+        ALOGE("Failed to write dumpState to fd for camera %s: %s", mCameraId.c_str(), strerror(errno));
+        // Not much we can do here, error will be ignored by caller typically.
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraDevice::isStreamCombinationSupported(
+        const StreamConfiguration& in_config, bool* _aidl_return) {
+    ALOGI("isStreamCombinationSupported called for camera %s", mCameraId.c_str());
+    if (_aidl_return == nullptr) {
+        ALOGE("isStreamCombinationSupported: _aidl_return is null");
+        return ndk::ScopedAStatus::fromExceptionCode(EX_NULL_POINTER);
+    }
+
+    // Basic validation: only one output stream configuration is supported for now.
+    if (in_config.streams.size() != 1) {
+        ALOGW("Stream configuration validation failed: Expected 1 stream, got %zu", in_config.streams.size());
+        *_aidl_return = false;
+        return ndk::ScopedAStatus::ok();
+    }
+    
+    const auto& stream = in_config.streams[0];
+    if (stream.streamType != aidl::android::hardware::camera::device::StreamType::OUTPUT) {
+        ALOGW("Stream configuration validation failed: Expected OUTPUT stream type, got %d", (int)stream.streamType);
+        *_aidl_return = false;
+        return ndk::ScopedAStatus::ok();
+    }
+
+    // Check if the requested stream matches our single supported configuration.
+    // Note: PixelFormat enum values from graphics.common should align with HAL_PIXEL_FORMAT constants.
+    if (stream.width == kDefaultWidth && 
+        stream.height == kDefaultHeight &&
+        stream.format == kDefaultPixelFormat)
+        // Dataspace can be tricky. Common ones are V0_JFIF (for JPEG-like), SRGB_LINEAR, etc.
+        // For YUV streams, UNKNOWN or a specific YUV dataspace is common.
+        // Let's be somewhat lenient or check for a common default.
+        // (stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::UNKNOWN ||
+        //  stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::V0_JFIF || // Common for MJPEG from UVC
+        //  stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::ISO_BT709_SRGB) // Example YUV dataspace
+    {
+        ALOGI("Stream combination IS supported: format %d, w %d, h %d, dataspace %d", 
+            (int)stream.format, stream.width, stream.height, (int)stream.dataSpace);
+        *_aidl_return = true;
+    } else {
+        ALOGW("Stream combination NOT supported: format %d (expected %d), w %d (exp %d), h %d (exp %d), dataspace %d", 
+            (int)stream.format, (int)kDefaultPixelFormat,
+            stream.width, kDefaultWidth,
+            stream.height, kDefaultHeight,
+            (int)stream.dataSpace);
+        *_aidl_return = false;
+    }
+    
+    return ndk::ScopedAStatus::ok();
+}
+
+std::shared_ptr<HalCameraSession> HalCameraDevice::getActiveSession() {
+    std::lock_guard<std::mutex> lock(mLock);
+    return mCurrentSession;
+}
+
+} // namespace cambridge
+} // namespace android

@@ -51,23 +51,45 @@ cc_library_shared {
     srcs: [
         "src/main/jni/cambridge_jni.cpp",
         "src/main/jni/virtual_camera_hal.cpp",
+        "src/main/cpp/hal_camera_provider.cpp",
+        "src/main/cpp/hal_camera_device.cpp",
+        "src/main/cpp/hal_camera_session.cpp",
     ],
     cflags: [
         "-Wall",
         "-Werror",
         "-Wextra",
         "-Wno-unused-parameter",
+        "-std=c++17", // Ensure C++17 for AIDL NDK backend if necessary
     ],
     shared_libs: [
-        "libhardware",
-        "libutils",
-        "liblog",
-        "libcutils",
-        "libcamera_metadata",
+        "libhardware", // For camera_common.h related types if any, though AIDL is preferred
+        "libutils",    // For RefBase, String*, etc.
+        "liblog",      // For ALOG functions
+        "libcutils",   // For properties, etc.
+        "libcamera_metadata", // For camera metadata utilities
+        "libbinder_ndk", // For AIDL NDK backend (ABinderProcess, AServiceManager, etc.)
+        "libnativewindow", // For native_handle_t, AHardwareBuffer_getNativeHandle etc.
+        "libandroid_runtime", // Provides JNI_OnLoad, useful Android system initializations
+        // libhardware_legacy for qemud service if needed, not directly here
+        // libgui for Surface/IGraphicBufferProducer if dealing with surfaces directly
+        // AIDL specific libraries for camera interfaces
+        "android.hardware.camera.common-V2-ndk", 
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",  
+        "android.hardware.graphics.common-V2-ndk", // For PixelFormat, BufferUsage etc.
+        "libyuv", // For YUV conversions
+    ],
+    static_libs: [
+        // If libyuv is provided as a static lib in the build system:
+        // "libyuv_static",
     ],
     header_libs: [
-        "libhardware_headers",
-        "libnativehelper_header_only",
-        "camera_headers",
+        "libhardware_headers", 
+        "libnativehelper_header_only", 
+        "camera_metadata_headers",
+        // Headers for AHardwareBuffer are part of NDK, usually implicitly available
+        // "libandroid_headers", // Could be a source for some platform headers if needed
     ],
-} 
+    export_include_dirs: ["src/main/cpp"], // So other modules can include HAL headers
+}

@@ -28,6 +28,14 @@ public class UvcCameraManager {
     private static final int USB_CLASS_VIDEO = 0x0E;
     private static final int USB_VIDEO_INTERFACE_SUBCLASS_CONTROL = 0x01;
     private static final int USB_VIDEO_INTERFACE_SUBCLASS_STREAMING = 0x02;
+
+    // UVC Constants
+    private static final int UVC_PROCESSING_UNIT_ID = 0x02;
+    private static final int UVC_BRIGHTNESS_CONTROL_SELECTOR = 0x02; // PU_BRIGHTNESS_CONTROL
+    private static final int UVC_SET_CUR = 0x01;
+    private static final int UVC_GET_CUR = 0x81;
+    private static final int UVC_CONTROL_REQUEST_TYPE_SET = UsbConstants.USB_TYPE_CLASS | UsbConstants.USB_DIR_OUT | 0x01; // 0x21
+    private static final int UVC_CONTROL_REQUEST_TYPE_GET = UsbConstants.USB_TYPE_CLASS | UsbConstants.USB_DIR_IN | 0x01; // 0xA1
     
     // Buffer size for reading video frames (adjust based on expected frame size)
     private static final int BUFFER_SIZE = 1024 * 1024; // 1MB
@@ -409,4 +417,82 @@ public class UvcCameraManager {
         // This is a placeholder for the actual configuration code
         Log.i(TAG, "Camera configured with default settings");
     }
-} 
+
+    /**
+     * Gets the current brightness value from the camera.
+     *
+     * @param deviceName The name of the UVC camera device
+     * @return The current brightness value, or -1 if an error occurred
+     */
+    public int getBrightness(String deviceName) {
+        UsbConnection conn = mActiveConnections.get(deviceName);
+        if (conn == null) {
+            Log.e(TAG, "getBrightness: Camera not found for device " + deviceName);
+            return -1;
+        }
+        if (conn.controlInterface == null) {
+            Log.e(TAG, "getBrightness: No control interface found for device " + deviceName);
+            return -1;
+        }
+
+        byte[] data = new byte[2];
+        int wIndex = (UVC_PROCESSING_UNIT_ID << 8) | conn.controlInterface.getId();
+        int wValue = (UVC_BRIGHTNESS_CONTROL_SELECTOR << 8);
+
+        int bytesTransferred = conn.connection.controlTransfer(
+                UVC_CONTROL_REQUEST_TYPE_GET, UVC_GET_CUR, wValue, wIndex, data, data.length, 1000);
+
+        if (bytesTransferred >= 0) {
+            // Convert little-endian bytes to integer
+            int brightness = (data[1] << 8) | (data[0] & 0xFF);
+            Log.i(TAG, "getBrightness: Device " + deviceName + ", Value: " + brightness + 
+                         ", Raw: " + data[0] + " " + data[1]);
+            return brightness;
+        } else {
+            Log.e(TAG, "getBrightness: Control transfer failed for device " + deviceName + 
+                         ", Error: " + bytesTransferred);
+            return -1;
+        }
+    }
+
+    /**
+     * Sets the brightness value for the camera.
+     *
+     * @param deviceName The name of the UVC camera device
+     * @param brightnessValue The brightness value to set
+     * @return true if successful, false otherwise
+     */
+    public boolean setBrightness(String deviceName, int brightnessValue) {
+        UsbConnection conn = mActiveConnections.get(deviceName);
+        if (conn == null) {
+            Log.e(TAG, "setBrightness: Camera not found for device " + deviceName);
+            return false;
+        }
+        if (conn.controlInterface == null) {
+            Log.e(TAG, "setBrightness: No control interface found for device " + deviceName);
+            return false;
+        }
+
+        byte[] data = new byte[2];
+        data[0] = (byte) (brightnessValue & 0xFF);          // Low byte
+        data[1] = (byte) ((brightnessValue >> 8) & 0xFF); // High byte
+
+        int wIndex = (UVC_PROCESSING_UNIT_ID << 8) | conn.controlInterface.getId();
+        int wValue = (UVC_BRIGHTNESS_CONTROL_SELECTOR << 8);
+
+        Log.i(TAG, "setBrightness: Device " + deviceName + ", Value: " + brightnessValue + 
+                     ", Raw: " + data[0] + " " + data[1]);
+
+        int bytesTransferred = conn.connection.controlTransfer(
+                UVC_CONTROL_REQUEST_TYPE_SET, UVC_SET_CUR, wValue, wIndex, data, data.length, 1000);
+
+        if (bytesTransferred >= 0) {
+            Log.i(TAG, "setBrightness: Success for device " + deviceName);
+            return true;
+        } else {
+            Log.e(TAG, "setBrightness: Control transfer failed for device " + deviceName + 
+                         ", Error: " + bytesTransferred);
+            return false;
+        }
+    }
+}
