@@ -84,12 +84,12 @@ private:
 
     std::vector<HalStream> mConfiguredHalStreams;
     // For simplicity, assume one output stream, fixed properties
-    Stream mActiveStreamInfo; 
+    Stream mActiveStreamInfo; // Stores the currently configured stream's properties
     bool mStreamsConfigured = false;
-    int mDefaultWidth = 640;
-    int mDefaultHeight = 480;
-    PixelFormat mDefaultPixelFormat = PixelFormat::YCBCR_420_888;
-    size_t mOutputBufferSize = 0;
+    // int mDefaultWidth = 640; // Replaced by mActiveStreamInfo.width
+    // int mDefaultHeight = 480; // Replaced by mActiveStreamInfo.height
+    // PixelFormat mDefaultPixelFormat = PixelFormat::YCBCR_420_888; // Replaced by mActiveStreamInfo.format
+    size_t mOutputBufferSize = 0; // Calculated based on mActiveStreamInfo
 
     // Frame processing thread
     std::thread mProcessingThread;

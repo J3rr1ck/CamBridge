@@ -67,34 +67,96 @@ void HalCameraDevice::initializeCharacteristics() {
     chars.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hardwareLevel, 1);
 
     std::vector<int32_t> streamConfigs;
+    // Config for 640x480
     streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
     streamConfigs.push_back(kDefaultWidth);
     streamConfigs.push_back(kDefaultHeight);
     streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
-    
-    // Example for a second resolution (if supported)
-    // streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
-    // streamConfigs.push_back(1280); 
-    // streamConfigs.push_back(720);
-    // streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
-
+    // Config for 1280x720
+    streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
+    streamConfigs.push_back(1280);
+    streamConfigs.push_back(720);
+    streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
+    // Config for 1920x1080
+    streamConfigs.push_back(static_cast<int32_t>(kDefaultPixelFormat));
+    streamConfigs.push_back(1920);
+    streamConfigs.push_back(1080);
+    streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
     chars.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, streamConfigs.data(), streamConfigs.size());
 
     std::vector<int64_t> minFrameDurations;
+    // Duration for 640x480 @ 30fps
     minFrameDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
     minFrameDurations.push_back(kDefaultWidth);
     minFrameDurations.push_back(kDefaultHeight);
-    minFrameDurations.push_back(1000000000LL / kDefaultFps); 
+    minFrameDurations.push_back(1000000000LL / kDefaultFps); // 33.3ms
+    // Duration for 1280x720 @ 30fps
+    minFrameDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    minFrameDurations.push_back(1280);
+    minFrameDurations.push_back(720);
+    minFrameDurations.push_back(1000000000LL / kDefaultFps); // 33.3ms
+    // Duration for 1920x1080 @ 30fps
+    minFrameDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    minFrameDurations.push_back(1920);
+    minFrameDurations.push_back(1080);
+    minFrameDurations.push_back(1000000000LL / kDefaultFps); // 33.3ms
     chars.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minFrameDurations.data(), minFrameDurations.size());
     
-    // Stall durations (0 for no stall)
     std::vector<int64_t> stallDurations;
+    // Stall for 640x480
     stallDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
     stallDurations.push_back(kDefaultWidth);
     stallDurations.push_back(kDefaultHeight);
     stallDurations.push_back(0); // No stall
+    // Stall for 1280x720
+    stallDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    stallDurations.push_back(1280);
+    stallDurations.push_back(720);
+    stallDurations.push_back(0); // No stall
+    // Stall for 1920x1080
+    stallDurations.push_back(static_cast<int64_t>(kDefaultPixelFormat));
+    stallDurations.push_back(1920);
+    stallDurations.push_back(1080);
+    stallDurations.push_back(0); // No stall
     chars.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, stallDurations.data(), stallDurations.size());
 
+    // Sensor active array size (based on largest resolution)
+    int32_t activeArraySize[] = {0, 0, 1920, 1080}; // left, top, width, height
+    chars.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize, sizeof(activeArraySize)/sizeof(int32_t));
+
+    // AE available target FPS ranges
+    std::vector<int32_t> aeTargetFpsRanges = {15, 30, 30, 30}; // {min1,max1, min2,max2 ...}
+    chars.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, aeTargetFpsRanges.data(), aeTargetFpsRanges.size());
+
+    // AF available modes
+    std::vector<uint8_t> afModes;
+    afModes.push_back(ANDROID_CONTROL_AF_MODE_OFF);
+    afModes.push_back(ANDROID_CONTROL_AF_MODE_AUTO);
+    afModes.push_back(ANDROID_CONTROL_AF_MODE_MACRO);
+    afModes.push_back(ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+    afModes.push_back(ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+    // Add EDOF if it makes sense for a virtual camera, often not.
+    chars.update(ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes.data(), afModes.size());
+    
+    // AWB available modes
+    std::vector<uint8_t> awbModes;
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_OFF);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_AUTO);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_INCANDESCENT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_FLUORESCENT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_DAYLIGHT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_TWILIGHT);
+    awbModes.push_back(ANDROID_CONTROL_AWB_MODE_SHADE);
+    chars.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes.data(), awbModes.size());
+
+    // JPEG Thumbnail Sizes
+    std::vector<int32_t> jpegThumbnailSizes;
+    jpegThumbnailSizes.push_back(0); jpegThumbnailSizes.push_back(0); // Mandatory: 0,0 for no thumbnail
+    jpegThumbnailSizes.push_back(160); jpegThumbnailSizes.push_back(120);
+    jpegThumbnailSizes.push_back(320); jpegThumbnailSizes.push_back(240);
+    chars.update(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, jpegThumbnailSizes.data(), jpegThumbnailSizes.size());
 
     uint8_t requestCapabilities[] = {ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE};
     chars.update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, requestCapabilities, sizeof(requestCapabilities));
@@ -262,27 +324,44 @@ ndk::ScopedAStatus HalCameraDevice::isStreamCombinationSupported(
         return ndk::ScopedAStatus::ok();
     }
 
-    // Check if the requested stream matches our single supported configuration.
-    // Note: PixelFormat enum values from graphics.common should align with HAL_PIXEL_FORMAT constants.
-    if (stream.width == kDefaultWidth && 
-        stream.height == kDefaultHeight &&
-        stream.format == kDefaultPixelFormat)
-        // Dataspace can be tricky. Common ones are V0_JFIF (for JPEG-like), SRGB_LINEAR, etc.
-        // For YUV streams, UNKNOWN or a specific YUV dataspace is common.
-        // Let's be somewhat lenient or check for a common default.
-        // (stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::UNKNOWN ||
-        //  stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::V0_JFIF || // Common for MJPEG from UVC
-        //  stream.dataSpace == aidl::android::hardware::camera::device::Dataspace::ISO_BT709_SRGB) // Example YUV dataspace
-    {
-        ALOGI("Stream combination IS supported: format %d, w %d, h %d, dataspace %d", 
-            (int)stream.format, stream.width, stream.height, (int)stream.dataSpace);
+    // Check if the requested stream configuration is among the supported ones.
+    // The mStaticCharacteristics should have ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS
+    camera_metadata_ro_entry_t entry = 
+        mStaticCharacteristics.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+
+    bool found = false;
+    if (entry.count > 0 && (entry.count % 4 == 0)) { // Each config is 4 int32_t values
+        for (size_t i = 0; i < entry.count; i += 4) {
+            if (static_cast<aidl::android::hardware::graphics::common::PixelFormat>(entry.data.i32[i]) == stream.format &&
+                entry.data.i32[i+1] == stream.width &&
+                entry.data.i32[i+2] == stream.height &&
+                entry.data.i32[i+3] == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
+                // Dataspace can be tricky. For this virtual HAL, we might be lenient or expect a common default.
+                // For now, let's assume if format, width, height, and type match, it's supported.
+                // A more robust check would also consider stream.dataSpace.
+                ALOGI("Stream combination IS supported: format %d, w %d, h %d, type OUTPUT",
+                      (int)stream.format, stream.width, stream.height);
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (found) {
         *_aidl_return = true;
     } else {
-        ALOGW("Stream combination NOT supported: format %d (expected %d), w %d (exp %d), h %d (exp %d), dataspace %d", 
-            (int)stream.format, (int)kDefaultPixelFormat,
-            stream.width, kDefaultWidth,
-            stream.height, kDefaultHeight,
-            (int)stream.dataSpace);
+        ALOGW("Stream combination NOT supported: format %d, w %d, h %d, type %d", 
+            (int)stream.format, stream.width, stream.height, (int)stream.streamType);
+        ALOGI("Available stream configurations:");
+        if (entry.count > 0 && (entry.count % 4 == 0)) {
+            for (size_t i = 0; i < entry.count; i += 4) {
+                 ALOGI("  format %d, w %d, h %d, type %d (OUTPUT is %d)",
+                    entry.data.i32[i], entry.data.i32[i+1], entry.data.i32[i+2], entry.data.i32[i+3],
+                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
+            }
+        } else {
+            ALOGI("  None or malformed in characteristics.");
+        }
         *_aidl_return = false;
     }
     

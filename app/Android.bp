@@ -50,7 +50,7 @@ cc_library_shared {
     name: "libcambridge_jni",
     srcs: [
         "src/main/jni/cambridge_jni.cpp",
-        "src/main/jni/virtual_camera_hal.cpp",
+        // "src/main/jni/virtual_camera_hal.cpp", // Removed HAL1 file
         "src/main/cpp/hal_camera_provider.cpp",
         "src/main/cpp/hal_camera_device.cpp",
         "src/main/cpp/hal_camera_session.cpp",

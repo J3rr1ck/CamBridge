@@ -89,39 +89,47 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     }
     
     const auto& reqStream = in_requestedStreams.streams[0];
-    // Validate requested stream against HAL capabilities (YCBCR_420_888, 640x480)
-    if (reqStream.streamType != aidl::android::hardware::camera::device::StreamType::OUTPUT ||
-        reqStream.width != mDefaultWidth ||
-        reqStream.height != mDefaultHeight ||
-        reqStream.format != mDefaultPixelFormat ) { // PixelFormat::YCBCR_420_888
-        ALOGE("Requested stream format/size/type not supported for %s.", mCameraId.c_str());
-        ALOGE("Req: w%d h%d fmt%d type%d. Supported: w%d h%d fmt%d type OUTPUT", 
-            reqStream.width, reqStream.height, (int)reqStream.format, (int)reqStream.streamType,
-            mDefaultWidth, mDefaultHeight, (int)mDefaultPixelFormat);
+
+    // Assumption: isStreamCombinationSupported has already validated this stream.
+    // We just need to handle it.
+    if (reqStream.streamType != aidl::android::hardware::camera::device::StreamType::OUTPUT) {
+        ALOGE("Requested stream type %d not OUTPUT for %s.", (int)reqStream.streamType, mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDeviceSession::ERROR_ILLEGAL_ARGUMENT);
+    }
+    
+    // Check if pixel format is YCBCR_420_888, as this is what the HAL currently handles for output.
+    // A more advanced HAL might support multiple output formats.
+    if (reqStream.format != PixelFormat::YCBCR_420_888) {
+        ALOGE("Requested stream format %d not YCBCR_420_888 for %s. Currently only YCBCR_420_888 is supported for output.", 
+            (int)reqStream.format, mCameraId.c_str());
         return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDeviceSession::ERROR_ILLEGAL_ARGUMENT);
     }
 
-    mActiveStreamInfo = reqStream;
+    mActiveStreamInfo = reqStream; // Store the active stream's properties
     
     HalStream halStream;
     halStream.id = reqStream.id;
     halStream.overridePixelFormat = reqStream.format; 
     halStream.producerUsage = aidl::android::hardware::graphics::common::BufferUsage::CPU_WRITE_OFTEN |
-                              aidl::android::hardware::graphics::common::BufferUsage::CAMERA_WRITE | // For HAL writing
-                              aidl::android::hardware::graphics::common::BufferUsage::GPU_SAMPLED_IMAGE; // For potential GPU consumption
+                              aidl::android::hardware::graphics::common::BufferUsage::CAMERA_WRITE | 
+                              aidl::android::hardware::graphics::common::BufferUsage::GPU_SAMPLED_IMAGE; 
     halStream.maxBuffers = kNumStreamBuffers; 
     halStream.dataSpace = reqStream.dataSpace;
-    // halStream.supportOffline is false by default
 
-    // Allocate AHardwareBuffers
+    // Allocate AHardwareBuffers using the properties from reqStream
     AHardwareBuffer_Desc desc = {};
-    desc.width = mDefaultWidth;
-    desc.height = mDefaultHeight;
+    desc.width = reqStream.width;
+    desc.height = reqStream.height;
     desc.layers = 1;
     // Map AIDL PixelFormat to AHARDWAREBUFFER_FORMAT.
     // PixelFormat::YCBCR_420_888 directly maps to AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420
-    // which is also HAL_PIXEL_FORMAT_YCBCR_420_888.
-    desc.format = AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+    if (reqStream.format == PixelFormat::YCBCR_420_888) {
+        desc.format = AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+    } else {
+        // Should not happen if we checked above, but as a fallback
+        ALOGE("Unsupported pixel format %d for AHardwareBuffer allocation on %s.", (int)reqStream.format, mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDeviceSession::ERROR_ILLEGAL_ARGUMENT);
+    }
     desc.usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN | 
                  AHARDWAREBUFFER_USAGE_CAMERA_WRITE | 
                  AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE; // Match producerUsage
@@ -131,31 +139,27 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
         AHardwareBuffer* buffer = nullptr;
         status_t err = AHardwareBuffer_allocate(&desc, &buffer);
         if (err != NO_ERROR || buffer == nullptr) {
-            ALOGE("Failed to allocate AHardwareBuffer %d for stream %d on %s: %s (%d)", 
-                  i, halStream.id, mCameraId.c_str(), strerror(-err), err);
-            // Clean up already allocated buffers
-            for (int j = 0; j < i; ++j) {
+            ALOGE("Failed to allocate AHardwareBuffer %d (w%d h%d fmt%d) for stream %d on %s: %s (%d)", 
+                  i, (int)desc.width, (int)desc.height, (int)desc.format,
+                  halStream.id, mCameraId.c_str(), strerror(-err), err);
+            for (int j = 0; j < i; ++j) { // Clean up already allocated buffers
                 if (mHardwareBuffers[j]) AHardwareBuffer_release(mHardwareBuffers[j]);
             }
             mHardwareBuffers.clear();
-            // Not setting _aidl_return->streams means configuration failed.
-            // Or, could set halStream.supportOffline = false or similar if AIDL supports it.
             return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDeviceSession::ERROR_ALLOCATE_FAILED);
         }
         mHardwareBuffers[i] = buffer; 
-        // AHardwareBuffer_allocate already gives an acquired buffer (refcount = 1)
-        // We don't need to call AHardwareBuffer_acquire here.
-        // AHardwareBuffer_release will be called in destructor or when reconfiguring.
     }
     
     _aidl_return->streams.push_back(halStream);
     mConfiguredHalStreams.assign({halStream});
 
-    mOutputBufferSize = (mDefaultWidth * mDefaultHeight * 3) / 2; // Still useful for reference
+    // Update buffer size based on actual configured stream
+    mOutputBufferSize = (reqStream.width * reqStream.height * 3) / 2; // For YCBCR_420_888
     mNextAvailableBufferIdx = 0;
     mStreamsConfigured = true;
-    ALOGI("Streams configured for camera %s. Allocated %d AHardwareBuffers. Stream ID: %d", 
-          mCameraId.c_str(), kNumStreamBuffers, halStream.id);
+    ALOGI("Streams configured for camera %s with w%d h%d fmt%d. Allocated %d AHardwareBuffers. Stream ID: %d", 
+          mCameraId.c_str(), reqStream.width, reqStream.height, (int)reqStream.format, kNumStreamBuffers, halStream.id);
     return ndk::ScopedAStatus::ok();
 }
 
