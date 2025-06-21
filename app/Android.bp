@@ -74,10 +74,10 @@ cc_library_shared {
         // libhardware_legacy for qemud service if needed, not directly here
         // libgui for Surface/IGraphicBufferProducer if dealing with surfaces directly
         // AIDL specific libraries for camera interfaces
-        "android.hardware.camera.common-V2-ndk", 
+        "android.hardware.camera.common-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
         "android.hardware.camera.device-V1-ndk",  
-        "android.hardware.graphics.common-V2-ndk", // For PixelFormat, BufferUsage etc.
+        "android.hardware.graphics.common-V3-ndk", // For PixelFormat, BufferUsage etc.
         "libyuv", // For YUV conversions
     ],
     static_libs: [
