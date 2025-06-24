@@ -7,6 +7,7 @@
 #include <string>
 #include <memory>
 #include <mutex> // Added for std::mutex
+#include "hal_camera_session.h"
 
 // Forward declare HalCameraDevice if its header isn't created in this step
 // class HalCameraDevice; 
