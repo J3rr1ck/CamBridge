@@ -396,9 +396,8 @@ void HalCameraSession::frameProcessingLoop() {
         }
         
         CaptureResult result;
-        result.frameNumber = mFrameNumber++; 
-        result.partialResult = 1; 
-        result.inputBuffer = std::nullopt; 
+        result.frameNumber = mFrameNumber++;
+        result.partialResult = 1;
 
         aidl::android::hardware::camera::device::StreamBuffer streamBuffer;
         streamBuffer.streamId = targetStream.id;
@@ -428,10 +427,13 @@ void HalCameraSession::frameProcessingLoop() {
 
         result.outputBuffers.push_back(std::move(streamBuffer));
 
-        aidl::android::hardware::camera::device::CameraMetadata dynamicMetadata;
-        dynamicMetadata.update(ANDROID_SENSOR_TIMESTAMP, &(rawFrame.timestamp), 1);
-        camera_metadata_t* released_metadata = dynamicMetadata.release();
-        result.result.reset(released_metadata);
+        camera_metadata_t* meta = allocate_camera_metadata(4, 32);
+        int64_t timestamp = rawFrame.timestamp;
+        add_camera_metadata_entry(meta, ANDROID_SENSOR_TIMESTAMP, &timestamp, 1);
+        size_t size = get_camera_metadata_size(meta);
+        result.result.metadata.resize(size);
+        memcpy(result.result.metadata.data(), meta, size);
+        free_camera_metadata(meta);
 
         if (mFrameworkCallback) {
             mFrameworkCallback->processCaptureResult({result});
