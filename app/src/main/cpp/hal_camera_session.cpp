@@ -299,7 +299,6 @@ void HalCameraSession::frameProcessingLoop() {
                 ALOGE("YUYV frame size %dx%d doesn't match AHardwareBuffer %ux%u for %s. Dropping.", 
                     rawFrame.width, rawFrame.height, desc.width, desc.height, mCameraId.c_str());
             } else {
-                uint8_t* yDst = static_cast<uint8_t*>(cpuWritablePtr);
                 // For YUV420 planar (like I420/YV12), UV planes follow Y.
                 // Stride for Y is desc.stride. Height for Y is desc.height.
                 // Stride for U/V is desc.stride / 2. Height for U/V is desc.height / 2.
@@ -405,19 +404,8 @@ void HalCameraSession::frameProcessingLoop() {
         // from the gralloc buffer. For now, we'll create a minimal handle
         // that the framework can work with using the bufferId
         
-        // Create a simple native_handle_t structure
-        // This is a simplified approach - in a real HAL you'd get the actual handle
-        native_handle_t* handle = native_handle_create(0, 0); // 0 fds, 0 ints
-        if (handle) {
-            // Add the buffer index as an integer for the framework to use
-            handle->numInts = 1;
-            handle->data[0] = currentBufferIdx;
-            
-            // Convert to AIDL NativeHandle
-            bufferHandle.ints.push_back(currentBufferIdx);
-            
-            native_handle_delete(handle);
-        }
+        // Add the buffer index as an integer for the framework to use
+        bufferHandle.ints.push_back(currentBufferIdx);
         
         streamBuffer.buffer = std::move(bufferHandle);
 
