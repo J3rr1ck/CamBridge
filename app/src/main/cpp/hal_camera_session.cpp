@@ -389,10 +389,15 @@ void HalCameraSession::frameProcessingLoop() {
         result.frameNumber = mFrameNumber++;
         result.partialResult = 1;
 
-        aidl::android::hardware::camera::device::StreamBuffer streamBuffer;
-        streamBuffer.streamId = targetStream.id;
-        streamBuffer.bufferId = static_cast<int64_t>(currentBufferIdx); // Framework uses this to map to its gralloc ID
-        streamBuffer.status = aidl::android::hardware::camera::device::BufferStatus::OK;
+        // Explicitly initialize StreamBuffer to avoid default construction of NativeHandle members
+        aidl::android::hardware::camera::device::StreamBuffer streamBuffer = {
+            .streamId = targetStream.id,
+            .bufferId = static_cast<int64_t>(currentBufferIdx),
+            .status = aidl::android::hardware::camera::device::BufferStatus::OK,
+            .buffer = {}, // Empty NativeHandle
+            .acquireFence = {}, // Empty NativeHandle
+            .releaseFence = {} // Empty NativeHandle
+        };
         
         // For this simplified HAL, we'll skip the NativeHandle creation entirely
         // The framework will use the bufferId to identify the buffer
