@@ -86,7 +86,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     if (in_requestedStreams.streams.size() > 1) {
         ALOGE("Configuration with %zu streams not supported for %s. Only 1 stream.", 
               in_requestedStreams.streams.size(), mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
     }
     
     const auto& reqStream = in_requestedStreams.streams[0];
@@ -95,7 +95,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     // We just need to handle it.
     if (reqStream.streamType != aidl::android::hardware::camera::device::StreamType::OUTPUT) {
         ALOGE("Requested stream type %d not OUTPUT for %s.", (int)reqStream.streamType, mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
     }
     
     // Check if pixel format is YCBCR_420_888, as this is what the HAL currently handles for output.
@@ -103,7 +103,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     if (reqStream.format != PixelFormat::YCBCR_420_888) {
         ALOGE("Requested stream format %d not YCBCR_420_888 for %s. Currently only YCBCR_420_888 is supported for output.", 
             (int)reqStream.format, mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
     }
 
     mActiveStreamInfo = reqStream; // Store the active stream's properties
@@ -128,7 +128,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     } else {
         // Should not happen if we checked above, but as a fallback
         ALOGE("Unsupported pixel format %d for AHardwareBuffer allocation on %s.", (int)reqStream.format, mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
     }
     desc.usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
 
@@ -144,7 +144,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
                 if (mHardwareBuffers[j]) AHardwareBuffer_release(mHardwareBuffers[j]);
             }
             mHardwareBuffers.clear();
-            return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENOMEM);
+            return ndk::ScopedAStatus::fromServiceSpecificError(-ENOMEM);
         }
         mHardwareBuffers[i] = buffer; 
     }
@@ -175,7 +175,7 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
             aidl::android::hardware::camera::device::NotifyMsg::make<
                 aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
         if (mFrameworkCallback) mFrameworkCallback->notify({notify});
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENODEV);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV);
     }
     
     std::lock_guard<std::mutex> lock(mFrameMutex); // Protects mStreamsConfigured, mConfiguredHalStreams
@@ -190,7 +190,7 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
                 aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
         if (mFrameworkCallback) mFrameworkCallback->notify({notify});
         *_aidl_return_submittedRequests = 0; 
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENOSYS);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
     }
 
     if (in_request.outputBuffers.empty()) {
@@ -204,7 +204,7 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
                 aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
         if (mFrameworkCallback) mFrameworkCallback->notify({notify});
         *_aidl_return_submittedRequests = 0;
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
     }
 
     // For this simple HAL, we assume the request is for the single configured stream.
@@ -449,17 +449,17 @@ void HalCameraSession::frameProcessingLoop() {
              if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
-        streamBuffer.buffer.set(clonedHalHandle); // ScopedHandle takes ownership of clonedHandle
+        streamBuffer.buffer = aidl::android::hardware::common::NativeHandle(clonedHalHandle);
 
         if (releaseFenceFd != -1) {
-            streamBuffer.releaseFence.set(releaseFenceFd); // ScopedHandle takes ownership of FD
+            streamBuffer.releaseFence = std::vector<ndk::ScopedFileDescriptor>{ndk::ScopedFileDescriptor(releaseFenceFd)};
         }
         // streamBuffer.acquireFence should be set if HAL needs framework to wait before reading.
         // For CPU processed buffer, usually not needed, or set to -1.
 
         result.outputBuffers.push_back(std::move(streamBuffer));
 
-        ::android::CameraMetadata dynamicMetadata;
+        aidl::android::hardware::camera::device::CameraMetadata dynamicMetadata;
         dynamicMetadata.update(ANDROID_SENSOR_TIMESTAMP, &(rawFrame.timestamp), 1);
         camera_metadata_t* released_metadata = dynamicMetadata.release();
         result.result.reset(released_metadata);
