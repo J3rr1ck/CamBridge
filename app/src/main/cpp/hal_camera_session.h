@@ -7,8 +7,8 @@
 #include <aidl/android/hardware/camera/device/CaptureResult.h>
 #include <aidl/android/hardware/camera/device/NotifyMsg.h>
 #include <aidl/android/hardware/graphics/common/PixelFormat.h>
-#include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h>
-
+// #include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h> // REMOVED: Not available in AOSP, use <system/camera_metadata.h> if needed
+#include <system/camera_metadata.h>
 
 #include <thread>
 #include <mutex>
