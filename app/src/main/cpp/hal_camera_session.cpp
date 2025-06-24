@@ -530,5 +530,34 @@ ndk::ScopedAStatus HalCameraSession::close() {
     return ndk::ScopedAStatus::ok();
 }
 
+ndk::ScopedAStatus HalCameraSession::constructDefaultRequestSettings(::aidl::android::hardware::camera::device::RequestTemplate /*in_type*/, ::aidl::android::hardware::camera::device::CameraMetadata* /*_aidl_return*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus HalCameraSession::getCaptureRequestMetadataQueue(::aidl::android::hardware::common::fmq::MQDescriptor<int8_t, ::aidl::android::hardware::common::fmq::SynchronizedReadWrite>* /*_aidl_return*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus HalCameraSession::getCaptureResultMetadataQueue(::aidl::android::hardware::common::fmq::MQDescriptor<int8_t, ::aidl::android::hardware::common::fmq::SynchronizedReadWrite>* /*_aidl_return*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus HalCameraSession::isReconfigurationRequired(const ::aidl::android::hardware::camera::device::CameraMetadata& /*in_oldSessionParams*/, const ::aidl::android::hardware::camera::device::CameraMetadata& /*in_newSessionParams*/, bool* _aidl_return) {
+    if (_aidl_return) *_aidl_return = false;
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraSession::signalStreamFlush(const std::vector<int32_t>& /*in_streamIds*/, int32_t /*in_streamConfigCounter*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus HalCameraSession::switchToOffline(const std::vector<int32_t>& /*in_streamsToKeep*/, ::aidl::android::hardware::camera::device::CameraOfflineSessionInfo* /*out_offlineSessionInfo*/, std::shared_ptr<::aidl::android::hardware::camera::device::ICameraOfflineSession>* /*_aidl_return*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus HalCameraSession::repeatingRequestEnd(int32_t /*in_frameNumber*/, const std::vector<int32_t>& /*in_streamIds*/) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
 } // namespace cambridge
 } // namespace android

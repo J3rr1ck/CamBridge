@@ -66,6 +66,15 @@ public:
     ndk::ScopedAStatus flush() override;
     ndk::ScopedAStatus close() override;
     
+    // --- Required stubs for ICameraDeviceSession ---
+    ndk::ScopedAStatus constructDefaultRequestSettings(::aidl::android::hardware::camera::device::RequestTemplate in_type, ::aidl::android::hardware::camera::device::CameraMetadata* _aidl_return) override;
+    ndk::ScopedAStatus getCaptureRequestMetadataQueue(::aidl::android::hardware::common::fmq::MQDescriptor<int8_t, ::aidl::android::hardware::common::fmq::SynchronizedReadWrite>* _aidl_return) override;
+    ndk::ScopedAStatus getCaptureResultMetadataQueue(::aidl::android::hardware::common::fmq::MQDescriptor<int8_t, ::aidl::android::hardware::common::fmq::SynchronizedReadWrite>* _aidl_return) override;
+    ndk::ScopedAStatus isReconfigurationRequired(const ::aidl::android::hardware::camera::device::CameraMetadata& in_oldSessionParams, const ::aidl::android::hardware::camera::device::CameraMetadata& in_newSessionParams, bool* _aidl_return) override;
+    ndk::ScopedAStatus signalStreamFlush(const std::vector<int32_t>& in_streamIds, int32_t in_streamConfigCounter) override;
+    ndk::ScopedAStatus switchToOffline(const std::vector<int32_t>& in_streamsToKeep, ::aidl::android::hardware::camera::device::CameraOfflineSessionInfo* out_offlineSessionInfo, std::shared_ptr<::aidl::android::hardware::camera::device::ICameraOfflineSession>* _aidl_return) override;
+    ndk::ScopedAStatus repeatingRequestEnd(int32_t in_frameNumber, const std::vector<int32_t>& in_streamIds) override;
+    
     // --- Custom methods ---
     // Called by JNI to push a new frame
     void pushNewFrame(const uint8_t* uvcData, size_t uvcDataSize, 

@@ -4,6 +4,7 @@
 #include <utils/Log.h>
 #include <hardware/camera3.h>     // For camera3_device_ops_t::construct_default_request_settings
 #include <system/camera_metadata.h>
+#include <cstring>
 
 // Define a LOG_TAG for this file
 #undef LOG_TAG
@@ -180,10 +181,12 @@ void HalCameraDevice::initializeCharacteristics() {
     // Available result keys (none for now, beyond mandatory)
     // Available characteristics keys (populated above)
 
-    mStaticCharacteristics.metadata.reset(metadata);
-    if (!mStaticCharacteristics.metadata) {
-        ALOGE("Failed to set metadata in mStaticCharacteristics after allocation.");
-    }
+    size_t size = get_camera_metadata_size(metadata);
+    mStaticCharacteristics.clear();
+    mStaticCharacteristics.resize(size);
+    memcpy(mStaticCharacteristics.data(), metadata, size);
+    free_camera_metadata(metadata);
+
     ALOGI("Static characteristics initialized for %s. Entry count: %zu", mCameraId.c_str(), get_camera_metadata_entry_count(metadata));
 }
 
@@ -193,24 +196,17 @@ ndk::ScopedAStatus HalCameraDevice::getCameraCharacteristics(CameraMetadata* _ai
         ALOGE("getCameraCharacteristics: _aidl_return is null");
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    if (!mStaticCharacteristics.metadata) {
-        ALOGE("getCameraCharacteristics: mStaticCharacteristics.metadata is null for camera %s", mCameraId.c_str());
-        // This indicates an initialization failure.
-        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+    if (!mStaticCharacteristics.size()) {
+        ALOGE("getCameraCharacteristics: mStaticCharacteristics is empty for camera %s", mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV); // Or appropriate error
     }
 
-    camera_metadata_t* cloned_metadata = clone_camera_metadata(mStaticCharacteristics.metadata.get());
-    if (!cloned_metadata) {
-        ALOGE("Failed to clone camera characteristics for camera %s", mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
-    }
-
-    // The _aidl_return is of type ::aidl::android::hardware::camera::common::CameraMetadata
-    // which is a wrapper around camera_metadata_t*. Its 'metadata' field is a unique_ptr.
-    _aidl_return->metadata.reset(cloned_metadata); // _aidl_return takes ownership
+    _aidl_return->clear();
+    _aidl_return->resize(mStaticCharacteristics.size());
+    memcpy(_aidl_return->data(), mStaticCharacteristics.data(), mStaticCharacteristics.size());
 
     ALOGI("Returning characteristics for camera %s. Metadata size: %zu bytes.", 
-        mCameraId.c_str(), get_camera_metadata_size(cloned_metadata));
+        mCameraId.c_str(), mStaticCharacteristics.size());
     return ndk::ScopedAStatus::ok();
 }
 
@@ -292,7 +288,7 @@ ndk::ScopedAStatus HalCameraDevice::dumpState(const ::ndk::ScopedFileDescriptor&
         }
     }
     dumpString += "  Static Characteristics entry count: " + 
-                  std::to_string(mStaticCharacteristics.metadata ? get_camera_metadata_entry_count(mStaticCharacteristics.metadata.get()) : 0) + "\n";
+                  std::to_string(mStaticCharacteristics.size() ? get_camera_metadata_entry_count(mStaticCharacteristics.data()) : 0) + "\n";
 
     if (write(in_fd.get(), dumpString.c_str(), dumpString.length()) < 0) {
         ALOGE("Failed to write dumpState to fd for camera %s: %s", mCameraId.c_str(), strerror(errno));
