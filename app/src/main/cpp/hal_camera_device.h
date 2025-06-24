@@ -7,8 +7,7 @@
 #include <aidl/android/hardware/camera/device/CameraMetadata.h>
 #include <aidl/android/hardware/camera/common/CameraResourceCost.h>
 #include <aidl/android/hardware/camera/device/ICameraInjectionSession.h>
-#include <camera/CameraMetadata.h>
-// #include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h> // REMOVED: Not available in AOSP, use <system/camera_metadata.h> if needed
+// #include <camera/CameraMetadata.h> // REMOVED: Not available in NDK/vendor builds
 
 // Forward declare HalCameraProvider and HalCameraSession
 namespace android {

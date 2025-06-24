@@ -3,7 +3,7 @@
 #include "hal_camera_provider.h" 
 #include <utils/Log.h>
 #include <hardware/camera3.h>     // For camera3_device_ops_t::construct_default_request_settings
-#include <camera/CameraMetadata.h>
+#include <system/camera_metadata.h>
 
 // Define a LOG_TAG for this file
 #undef LOG_TAG
@@ -54,17 +54,17 @@ HalCameraDevice::~HalCameraDevice() {
 
 void HalCameraDevice::initializeCharacteristics() {
     ALOGI("Initializing static characteristics for camera %s", mCameraId.c_str());
-    ::android::CameraMetadata chars; 
+    camera_metadata_t* chars = camera_metadata_create_and_add_section(0, 0);
 
     uint8_t lensFacing = ANDROID_LENS_FACING_EXTERNAL;
-    chars.update(ANDROID_LENS_FACING, &lensFacing, 1);
+    camera_metadata_update_int32(chars, ANDROID_LENS_FACING, 1, &lensFacing);
 
     int32_t sensorOrientation = 0; // Default, UVC cameras might not report this easily
-    chars.update(ANDROID_SENSOR_ORIENTATION, &sensorOrientation, 1);
+    camera_metadata_update_int32(chars, ANDROID_SENSOR_ORIENTATION, 1, &sensorOrientation);
     
     // INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED is a safe bet for virtual/UVC cameras
     uint8_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
-    chars.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hardwareLevel, 1);
+    camera_metadata_update_int32(chars, ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, 1, &hardwareLevel);
 
     std::vector<int32_t> streamConfigs;
     // Config for 640x480
@@ -82,7 +82,7 @@ void HalCameraDevice::initializeCharacteristics() {
     streamConfigs.push_back(1920);
     streamConfigs.push_back(1080);
     streamConfigs.push_back(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
-    chars.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, streamConfigs.data(), streamConfigs.size());
+    camera_metadata_update_int32_array(chars, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, streamConfigs.size() / 4, streamConfigs.data());
 
     std::vector<int64_t> minFrameDurations;
     // Duration for 640x480 @ 30fps
@@ -100,7 +100,7 @@ void HalCameraDevice::initializeCharacteristics() {
     minFrameDurations.push_back(1920);
     minFrameDurations.push_back(1080);
     minFrameDurations.push_back(1000000000LL / kDefaultFps); // 33.3ms
-    chars.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minFrameDurations.data(), minFrameDurations.size());
+    camera_metadata_update_int64_array(chars, ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minFrameDurations.size() / 4, minFrameDurations.data());
     
     std::vector<int64_t> stallDurations;
     // Stall for 640x480
@@ -118,15 +118,15 @@ void HalCameraDevice::initializeCharacteristics() {
     stallDurations.push_back(1920);
     stallDurations.push_back(1080);
     stallDurations.push_back(0); // No stall
-    chars.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, stallDurations.data(), stallDurations.size());
+    camera_metadata_update_int64_array(chars, ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, stallDurations.size() / 4, stallDurations.data());
 
     // Sensor active array size (based on largest resolution)
     int32_t activeArraySize[] = {0, 0, 1920, 1080}; // left, top, width, height
-    chars.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize, sizeof(activeArraySize)/sizeof(int32_t));
+    camera_metadata_update_int32_array(chars, ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, sizeof(activeArraySize)/sizeof(int32_t), activeArraySize);
 
     // AE available target FPS ranges
     std::vector<int32_t> aeTargetFpsRanges = {15, 30, 30, 30}; // {min1,max1, min2,max2 ...}
-    chars.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, aeTargetFpsRanges.data(), aeTargetFpsRanges.size());
+    camera_metadata_update_int32_array(chars, ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, aeTargetFpsRanges.size() / 4, aeTargetFpsRanges.data());
 
     // AF available modes
     std::vector<uint8_t> afModes;
@@ -136,7 +136,7 @@ void HalCameraDevice::initializeCharacteristics() {
     afModes.push_back(ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO);
     afModes.push_back(ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE);
     // Add EDOF if it makes sense for a virtual camera, often not.
-    chars.update(ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes.data(), afModes.size());
+    camera_metadata_update_uint8_array(chars, ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes.size(), afModes.data());
     
     // AWB available modes
     std::vector<uint8_t> awbModes;
@@ -149,38 +149,32 @@ void HalCameraDevice::initializeCharacteristics() {
     awbModes.push_back(ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT);
     awbModes.push_back(ANDROID_CONTROL_AWB_MODE_TWILIGHT);
     awbModes.push_back(ANDROID_CONTROL_AWB_MODE_SHADE);
-    chars.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes.data(), awbModes.size());
+    camera_metadata_update_uint8_array(chars, ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes.size(), awbModes.data());
 
     // JPEG Thumbnail Sizes
     std::vector<int32_t> jpegThumbnailSizes;
     jpegThumbnailSizes.push_back(0); jpegThumbnailSizes.push_back(0); // Mandatory: 0,0 for no thumbnail
     jpegThumbnailSizes.push_back(160); jpegThumbnailSizes.push_back(120);
     jpegThumbnailSizes.push_back(320); jpegThumbnailSizes.push_back(240);
-    chars.update(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, jpegThumbnailSizes.data(), jpegThumbnailSizes.size());
+    camera_metadata_update_int32_array(chars, ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, jpegThumbnailSizes.size() / 4, jpegThumbnailSizes.data());
 
     uint8_t requestCapabilities[] = {ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE};
-    chars.update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, requestCapabilities, sizeof(requestCapabilities));
+    camera_metadata_update_uint8_array(chars, ANDROID_REQUEST_AVAILABLE_CAPABILITIES, sizeof(requestCapabilities), requestCapabilities);
     
     int32_t partialResultCount = 1; 
-    chars.update(ANDROID_REQUEST_PARTIAL_RESULT_COUNT, &partialResultCount, 1);
+    camera_metadata_update_int32(chars, ANDROID_REQUEST_PARTIAL_RESULT_COUNT, 1, &partialResultCount);
 
     uint8_t pipelineMaxDepth = 4; 
-    chars.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, &pipelineMaxDepth, 1);
+    camera_metadata_update_uint8(chars, ANDROID_REQUEST_PIPELINE_MAX_DEPTH, 1, &pipelineMaxDepth);
     
     int32_t syncMaxLatency = ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL;
-    chars.update(ANDROID_SYNC_MAX_LATENCY, &syncMaxLatency, 1);
+    camera_metadata_update_int32(chars, ANDROID_SYNC_MAX_LATENCY, 1, &syncMaxLatency);
 
     // Available request keys (none for now, beyond mandatory)
     // Available result keys (none for now, beyond mandatory)
     // Available characteristics keys (populated above)
 
-    camera_metadata_t* raw_metadata = chars.release();
-    if (!raw_metadata) {
-        ALOGE("Failed to release metadata from CameraMetadata helper.");
-        // Handle error, perhaps by trying to create a minimal valid metadata
-        return;
-    }
-    mStaticCharacteristics.metadata.reset(raw_metadata); 
+    mStaticCharacteristics.metadata.reset(chars); 
      if (!mStaticCharacteristics.metadata) {
         ALOGE("Failed to set metadata in mStaticCharacteristics after release.");
     }
