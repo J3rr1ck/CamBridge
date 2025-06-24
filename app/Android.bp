@@ -92,6 +92,13 @@ cc_library_shared {
         // "camera_metadata_headers", // Removed, assuming libcamera_metadata provides them
         // Headers for AHardwareBuffer are part of NDK, usually implicitly available
         // "libandroid_headers", // Could be a source for some platform headers if needed
+        "libnativewindow_headers",
     ],
     export_include_dirs: ["src/main/cpp"], // So other modules can include HAL headers
+    export_header_lib_headers: [
+        "libnativewindow_headers",
+    ],
+    include_dirs: [
+        "frameworks/native/libs/nativewindow/include",
+    ],
 }

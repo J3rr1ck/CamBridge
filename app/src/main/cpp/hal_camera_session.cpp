@@ -318,10 +318,6 @@ void HalCameraSession::frameProcessingLoop() {
                 // This part needs careful handling of actual buffer layout.
                 // For simplicity, assuming cpuWritablePtr points to a buffer large enough for I420
                 // and we write Y, then U, then V contiguously (which is typical I420 file layout).
-                uint8_t* vDst = uDst + (desc.stride / 2) * (desc.height / 2); // If U/V are full width stride after Y plane
-                                                                            // This is more like I420 layout.
-                                                                            // Stride for U/V is typically desc.stride/2 for I420.
-
                 conversionOk = convertYUYVToI420(rawFrame.data.data(), rawFrame.width, rawFrame.height,
                                                 static_cast<uint8_t*>(cpuWritablePtr), desc.stride,      // Y plane, Y stride
                                                 static_cast<uint8_t*>(cpuWritablePtr) + desc.stride * desc.height, desc.stride / 2, // U plane, UV stride
@@ -363,7 +359,7 @@ void HalCameraSession::frameProcessingLoop() {
 
                         // Copy V plane
                         libyuv::CopyPlane(yuvData.data() + desc.width * desc.height + (desc.width/2 * desc.height/2) , desc.width / 2, // src_v, src_stride_v
-                                          vDst, desc.stride / 2,                                                                    // dst_v, dst_stride_v
+                                          uDst + (desc.stride / 2) * (desc.height / 2), desc.stride / 2,                                                                    // dst_v, dst_stride_v
                                           desc.width / 2, desc.height / 2);                                                          // width, height for V
                         conversionOk = true;
                         ALOGI("MJPEG frame decoded and copied to AHardwareBuffer for %s.", mCameraId.c_str());
@@ -417,10 +413,21 @@ void HalCameraSession::frameProcessingLoop() {
              if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
-        streamBuffer.buffer = aidl::android::hardware::common::NativeHandle::fromNativeHandle(clonedHalHandle);
+        aidl::android::hardware::common::NativeHandle bufferHandle;
+        if (clonedHalHandle) {
+            for (int i = 0; i < clonedHalHandle->numFds; ++i) {
+                bufferHandle.fds.emplace_back(::dup(clonedHalHandle->data[i]));
+            }
+            for (int i = 0; i < clonedHalHandle->numInts; ++i) {
+                bufferHandle.ints.push_back(clonedHalHandle->data[clonedHalHandle->numFds + i]);
+            }
+        }
+        streamBuffer.buffer = std::move(bufferHandle);
 
         if (releaseFenceFd != -1) {
-            streamBuffer.releaseFence = aidl::android::hardware::common::NativeHandle::fromFd(releaseFenceFd);
+            aidl::android::hardware::common::NativeHandle fenceHandle;
+            fenceHandle.fds.emplace_back(::dup(releaseFenceFd));
+            streamBuffer.releaseFence = std::move(fenceHandle);
         }
         // streamBuffer.acquireFence should be set if HAL needs framework to wait before reading.
         // For CPU processed buffer, usually not needed, or set to -1.
