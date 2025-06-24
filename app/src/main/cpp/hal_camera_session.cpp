@@ -394,27 +394,13 @@ void HalCameraSession::frameProcessingLoop() {
         streamBuffer.bufferId = static_cast<int64_t>(currentBufferIdx); // Framework uses this to map to its gralloc ID
         streamBuffer.status = aidl::android::hardware::camera::device::BufferStatus::OK;
         
-        // Create a NativeHandle for the framework
-        // Since we can't get the native handle directly from AHardwareBuffer,
-        // we'll create a minimal handle that the framework can use
-        // The framework will use the bufferId to map to the actual gralloc buffer
-        aidl::android::hardware::common::NativeHandle bufferHandle;
+        // For this simplified HAL, we'll skip the NativeHandle creation entirely
+        // The framework will use the bufferId to identify the buffer
+        // In a real implementation, you'd need to provide a proper NativeHandle
         
-        // For a real implementation, you would need to get the actual native handle
-        // from the gralloc buffer. For now, we'll create a minimal handle
-        // that the framework can work with using the bufferId
-        
-        // Add the buffer index as an integer for the framework to use
-        bufferHandle.ints.push_back(currentBufferIdx);
-        
-        streamBuffer.buffer = std::move(bufferHandle);
-
+        // Close the fence since we're not using it in this simplified approach
         if (releaseFenceFd != -1) {
-            // Create fence handle without triggering move-only type issues
-            // For now, we'll just close the fence since this is a simplified HAL
             ::close(releaseFenceFd);
-            // In a real implementation, you'd need to properly handle the fence
-            // streamBuffer.releaseFence would be set to a valid NativeHandle
         }
         // streamBuffer.acquireFence should be set if HAL needs framework to wait before reading.
         // For CPU processed buffer, usually not needed, or set to -1.
