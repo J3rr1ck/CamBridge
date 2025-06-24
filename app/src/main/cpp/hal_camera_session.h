@@ -21,6 +21,7 @@
 #include "libyuv/convert.h"
 #include "libyuv/planar_functions.h"
 
+#include <aidl/android/hardware/camera/device/BufferCache.h>
 
 // Forward declare HalCameraDevice
 namespace android {
@@ -36,6 +37,7 @@ using ::aidl::android::hardware::camera::device::CaptureResult;
 using ::aidl::android::hardware::camera::device::NotifyMsg;
 using ::aidl::android::hardware::graphics::common::PixelFormat;
 using ::aidl::android::hardware::camera::device::HalStream;
+using ::aidl::android::hardware::camera::device::BufferCache;
 
 
 // Simple structure for raw frames coming from JNI
@@ -57,8 +59,10 @@ public:
     // --- AIDL ICameraDeviceSession methods ---
     ndk::ScopedAStatus configureStreams(const StreamConfiguration& in_requestedStreams,
                                         std::vector<HalStream>* _aidl_return) override;
-    ndk::ScopedAStatus processCaptureRequest(const CaptureRequest& in_request, 
-                                             int32_t* _aidl_return_submittedRequests) override; // Assuming this signature
+    ndk::ScopedAStatus processCaptureRequest(
+        const std::vector<CaptureRequest>& in_requests,
+        const std::vector<BufferCache>& in_cachesToRemove,
+        int32_t* _aidl_return) override;
     ndk::ScopedAStatus flush() override;
     ndk::ScopedAStatus close() override;
     
