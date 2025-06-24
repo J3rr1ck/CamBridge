@@ -48,6 +48,7 @@ android_app {
 // JNI library for camera HAL integration
 cc_library_shared {
     name: "libcambridge_jni",
+    sdk_version: "current",
     srcs: [
         "src/main/jni/cambridge_jni.cpp",
         // "src/main/jni/virtual_camera_hal.cpp", // Removed HAL1 file
@@ -74,10 +75,10 @@ cc_library_shared {
         // libhardware_legacy for qemud service if needed, not directly here
         // libgui for Surface/IGraphicBufferProducer if dealing with surfaces directly
         // AIDL specific libraries for camera interfaces
-        "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.camera.device-V1-ndk",  
-        "android.hardware.graphics.common-V3-ndk", // For PixelFormat, BufferUsage etc.
+        "android.hardware.camera.common-V1-ndk-vndk",
+        "android.hardware.camera.provider-V1-ndk-vndk",
+        "android.hardware.camera.device-V1-ndk-vndk",
+        "android.hardware.graphics.common-V3-ndk-vndk", // For PixelFormat, BufferUsage etc.
         "libyuv", // For YUV conversions
     ],
     static_libs: [
@@ -90,10 +91,6 @@ cc_library_shared {
         // "camera_metadata_headers", // Removed, assuming libcamera_metadata provides them
         // Headers for AHardwareBuffer are part of NDK, usually implicitly available
         // "libandroid_headers", // Could be a source for some platform headers if needed
-        "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.camera.device-V1-ndk",
-        "android.hardware.graphics.common-V3-ndk",
     ],
     export_include_dirs: ["src/main/cpp"], // So other modules can include HAL headers
 }
