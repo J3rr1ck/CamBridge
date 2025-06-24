@@ -17,6 +17,7 @@ class HalCameraDevice;
 }
 }
 
+class HalCameraSession;
 
 namespace android {
 namespace cambridge {

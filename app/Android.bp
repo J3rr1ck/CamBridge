@@ -80,6 +80,7 @@ cc_library_shared {
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.graphics.common-V3-ndk", // For PixelFormat, BufferUsage etc.
         "libyuv", // For YUV conversions
+        "android.hardware.camera.metadata-V1-ndk",
     ],
     static_libs: [
         // If libyuv is provided as a static lib in the build system:
