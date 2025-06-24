@@ -182,12 +182,12 @@ void HalCameraDevice::initializeCharacteristics() {
     // Available characteristics keys (populated above)
 
     size_t size = get_camera_metadata_size(metadata);
-    mStaticCharacteristics.clear();
-    mStaticCharacteristics.resize(size);
-    memcpy(mStaticCharacteristics.data(), metadata, size);
+    mStaticCharacteristics.metadata.clear();
+    mStaticCharacteristics.metadata.resize(size);
+    memcpy(mStaticCharacteristics.metadata.data(), metadata, size);
     free_camera_metadata(metadata);
 
-    ALOGI("Static characteristics initialized for %s. Entry count: %zu", mCameraId.c_str(), get_camera_metadata_entry_count(metadata));
+    ALOGI("Static characteristics initialized for %s. Entry count: %zu", mCameraId.c_str(), get_camera_metadata_entry_count(reinterpret_cast<const camera_metadata_t*>(mStaticCharacteristics.metadata.data())));
 }
 
 ndk::ScopedAStatus HalCameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_return) {
@@ -196,17 +196,13 @@ ndk::ScopedAStatus HalCameraDevice::getCameraCharacteristics(CameraMetadata* _ai
         ALOGE("getCameraCharacteristics: _aidl_return is null");
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    if (!mStaticCharacteristics.size()) {
-        ALOGE("getCameraCharacteristics: mStaticCharacteristics is empty for camera %s", mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV); // Or appropriate error
+    if (!mStaticCharacteristics.metadata.size()) {
+        ALOGE("getCameraCharacteristics: mStaticCharacteristics.metadata is empty for camera %s", mCameraId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV);
     }
 
-    _aidl_return->clear();
-    _aidl_return->resize(mStaticCharacteristics.size());
-    memcpy(_aidl_return->data(), mStaticCharacteristics.data(), mStaticCharacteristics.size());
-
-    ALOGI("Returning characteristics for camera %s. Metadata size: %zu bytes.", 
-        mCameraId.c_str(), mStaticCharacteristics.size());
+    _aidl_return->metadata = mStaticCharacteristics.metadata;
+    ALOGI("Returning characteristics for camera %s. Metadata size: %zu bytes.", mCameraId.c_str(), mStaticCharacteristics.metadata.size());
     return ndk::ScopedAStatus::ok();
 }
 
@@ -218,7 +214,7 @@ ndk::ScopedAStatus HalCameraDevice::open(const std::shared_ptr<ICameraDeviceCall
     if (mCurrentSession) {
         ALOGE("Camera %s is already open. Current session pointer: %p", mCameraId.c_str(), mCurrentSession.get());
         // According to AIDL spec, if camera is in use, return ERROR_CAMERA_IN_USE
-        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_IN_USE);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-EBUSY);
     }
 
     if (in_callback == nullptr) {
@@ -230,7 +226,7 @@ ndk::ScopedAStatus HalCameraDevice::open(const std::shared_ptr<ICameraDeviceCall
     auto session = ndk::SharedRefBase::make<HalCameraSession>(mCameraId, this, in_callback);
     if (!session) {
         ALOGE("Failed to create HalCameraSession for %s", mCameraId.c_str());
-        return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_CAMERA_DEVICE);
+        return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV);
     }
     
     // If HalCameraSession has an initialize method that can fail:
@@ -267,7 +263,7 @@ ndk::ScopedAStatus HalCameraDevice::setTorchMode(bool /*in_enabled*/) {
     // The ICameraProvider's isSetTorchModeAvailable should return false for this camera.
     // If that's the case, CameraService might not even call this.
     // For now, let's assume it can be called and we should indicate it's not supported.
-    return ndk::ScopedAStatus::fromServiceSpecificError(ICameraDevice::ERROR_INVALID_OPERATION); // Or ERROR_ILLEGAL_ARGUMENT
+    return ndk::ScopedAStatus::fromServiceSpecificError(-EINVAL); // Or -EINVAL
 }
 
 ndk::ScopedAStatus HalCameraDevice::dumpState(const ::ndk::ScopedFileDescriptor& in_fd) {
@@ -287,8 +283,8 @@ ndk::ScopedAStatus HalCameraDevice::dumpState(const ::ndk::ScopedFileDescriptor&
             dumpString += "  Session ptr: " + std::to_string(reinterpret_cast<uintptr_t>(mCurrentSession.get())) + "\n";
         }
     }
-    dumpString += "  Static Characteristics entry count: " + 
-                  std::to_string(mStaticCharacteristics.size() ? get_camera_metadata_entry_count(mStaticCharacteristics.data()) : 0) + "\n";
+    dumpString += "  Static Characteristics entry count: " +
+        std::to_string(mStaticCharacteristics.metadata.size() ? get_camera_metadata_entry_count(reinterpret_cast<const camera_metadata_t*>(mStaticCharacteristics.metadata.data())) : 0) + "\n";
 
     if (write(in_fd.get(), dumpString.c_str(), dumpString.length()) < 0) {
         ALOGE("Failed to write dumpState to fd for camera %s: %s", mCameraId.c_str(), strerror(errno));
@@ -321,11 +317,12 @@ ndk::ScopedAStatus HalCameraDevice::isStreamCombinationSupported(
 
     // Check if the requested stream configuration is among the supported ones.
     // The mStaticCharacteristics should have ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS
-    camera_metadata_ro_entry_t entry = 
-        mStaticCharacteristics.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    const camera_metadata_t* meta = reinterpret_cast<const camera_metadata_t*>(mStaticCharacteristics.metadata.data());
+    camera_metadata_ro_entry_t entry;
+    int ret = find_camera_metadata_ro_entry(meta, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, &entry);
 
     bool found = false;
-    if (entry.count > 0 && (entry.count % 4 == 0)) { // Each config is 4 int32_t values
+    if (ret == 0 && (entry.count > 0 && (entry.count % 4 == 0))) { // Each config is 4 int32_t values
         for (size_t i = 0; i < entry.count; i += 4) {
             if (static_cast<aidl::android::hardware::graphics::common::PixelFormat>(entry.data.i32[i]) == stream.format &&
                 entry.data.i32[i+1] == stream.width &&
@@ -348,7 +345,7 @@ ndk::ScopedAStatus HalCameraDevice::isStreamCombinationSupported(
         ALOGW("Stream combination NOT supported: format %d, w %d, h %d, type %d", 
             (int)stream.format, stream.width, stream.height, (int)stream.streamType);
         ALOGI("Available stream configurations:");
-        if (entry.count > 0 && (entry.count % 4 == 0)) {
+        if (ret == 0 && (entry.count > 0 && (entry.count % 4 == 0))) {
             for (size_t i = 0; i < entry.count; i += 4) {
                  ALOGI("  format %d, w %d, h %d, type %d (OUTPUT is %d)",
                     entry.data.i32[i], entry.data.i32[i+1], entry.data.i32[i+2], entry.data.i32[i+3],
