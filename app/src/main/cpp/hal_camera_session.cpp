@@ -385,18 +385,19 @@ void HalCameraSession::frameProcessingLoop() {
             continue;
         }
         
-        CaptureResult result;
-        result.frameNumber = mFrameNumber++;
-        result.partialResult = 1;
-
-        // For this simplified HAL, we'll skip the StreamBuffer entirely
-        // and just send a basic result with metadata
-        // In a real implementation, you'd need to provide proper StreamBuffer with NativeHandle
-        
         // Close the fence since we're not using it in this simplified approach
         if (releaseFenceFd != -1) {
             ::close(releaseFenceFd);
         }
+
+        // Use designated initializers to avoid default construction of NativeHandle members
+        CaptureResult result = {
+            .frameNumber = mFrameNumber++,
+            .partialResult = 1,
+            .outputBuffers = {}, // Empty vector to avoid NativeHandle construction
+            .inputBuffer = {}, // Empty to avoid NativeHandle construction
+            .result = {} // Will be filled with metadata below
+        };
 
         camera_metadata_t* meta = allocate_camera_metadata(4, 32);
         int64_t timestamp = rawFrame.timestamp;
