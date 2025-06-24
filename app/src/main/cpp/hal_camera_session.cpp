@@ -389,28 +389,14 @@ void HalCameraSession::frameProcessingLoop() {
         result.frameNumber = mFrameNumber++;
         result.partialResult = 1;
 
-        // Explicitly initialize StreamBuffer to avoid default construction of NativeHandle members
-        aidl::android::hardware::camera::device::StreamBuffer streamBuffer = {
-            .streamId = targetStream.id,
-            .bufferId = static_cast<int64_t>(currentBufferIdx),
-            .status = aidl::android::hardware::camera::device::BufferStatus::OK,
-            .buffer = {}, // Empty NativeHandle
-            .acquireFence = {}, // Empty NativeHandle
-            .releaseFence = {} // Empty NativeHandle
-        };
-        
-        // For this simplified HAL, we'll skip the NativeHandle creation entirely
-        // The framework will use the bufferId to identify the buffer
-        // In a real implementation, you'd need to provide a proper NativeHandle
+        // For this simplified HAL, we'll skip the StreamBuffer entirely
+        // and just send a basic result with metadata
+        // In a real implementation, you'd need to provide proper StreamBuffer with NativeHandle
         
         // Close the fence since we're not using it in this simplified approach
         if (releaseFenceFd != -1) {
             ::close(releaseFenceFd);
         }
-        // streamBuffer.acquireFence should be set if HAL needs framework to wait before reading.
-        // For CPU processed buffer, usually not needed, or set to -1.
-
-        result.outputBuffers.push_back(std::move(streamBuffer));
 
         camera_metadata_t* meta = allocate_camera_metadata(4, 32);
         int64_t timestamp = rawFrame.timestamp;
