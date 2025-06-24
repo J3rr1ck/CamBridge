@@ -8,6 +8,8 @@
 #include <android/hardware_buffer.h> // For AHardwareBuffer
 #include <android/native_window.h> // For native_handle_clone, native_handle_delete
 #include <system/graphics.h> // For HAL_PIXEL_FORMAT constants (needed for AHARDWAREBUFFER_FORMAT mapping)
+#include <cutils/native_handle.h>
+#include <unistd.h>
 
 // Define a LOG_TAG for this file
 #undef LOG_TAG
@@ -109,8 +111,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
     HalStream halStream;
     halStream.id = reqStream.id;
     halStream.overrideFormat = reqStream.format;
-    halStream.producerUsage = aidl::android::hardware::graphics::common::BufferUsage::CPU_WRITE_OFTEN |
-                              aidl::android::hardware::graphics::common::BufferUsage::CAMERA_OUTPUT;
+    halStream.producerUsage = aidl::android::hardware::graphics::common::BufferUsage::CPU_WRITE_OFTEN;
     halStream.consumerUsage = aidl::android::hardware::graphics::common::BufferUsage::CPU_READ_OFTEN;
     halStream.maxBuffers = kNumStreamBuffers;
     halStream.overrideDataSpace = reqStream.dataSpace;
@@ -129,7 +130,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
         ALOGE("Unsupported pixel format %d for AHardwareBuffer allocation on %s.", (int)reqStream.format, mCameraId.c_str());
         return ndk::ScopedAStatus::fromServiceSpecificError(EX_ILLEGAL_ARGUMENT);
     }
-    desc.usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN | AHARDWAREBUFFER_USAGE_CAMERA_OUTPUT;
+    desc.usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
 
     mHardwareBuffers.resize(kNumStreamBuffers, nullptr);
     for (int i = 0; i < kNumStreamBuffers; ++i) {
@@ -143,7 +144,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
                 if (mHardwareBuffers[j]) AHardwareBuffer_release(mHardwareBuffers[j]);
             }
             mHardwareBuffers.clear();
-            return ndk::ScopedAStatus::fromServiceSpecificError(EX_ALLOCATE_FAILED);
+            return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENOMEM);
         }
         mHardwareBuffers[i] = buffer; 
     }
@@ -174,7 +175,7 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
             aidl::android::hardware::camera::device::NotifyMsg::make<
                 aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
         if (mFrameworkCallback) mFrameworkCallback->notify({notify});
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_CAMERA_DISCONNECTED);
+        return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENODEV);
     }
     
     std::lock_guard<std::mutex> lock(mFrameMutex); // Protects mStreamsConfigured, mConfiguredHalStreams
@@ -189,7 +190,7 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
                 aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
         if (mFrameworkCallback) mFrameworkCallback->notify({notify});
         *_aidl_return_submittedRequests = 0; 
-        return ndk::ScopedAStatus::fromServiceSpecificError(EX_INVALID_OPERATION);
+        return ndk::ScopedAStatus::fromServiceSpecificError(EX_SERVICE_SPECIFIC, -ENOSYS);
     }
 
     if (in_request.outputBuffers.empty()) {
@@ -209,9 +210,12 @@ ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
     // For this simple HAL, we assume the request is for the single configured stream.
     // A more complex HAL would check in_request.outputBuffers[0].streamId.
 
-    aidl::android::hardware::camera::device::NotifyMsg shutterMsg;
-    shutterMsg.type = aidl::android::hardware::camera::device::NotifyMsg::Tag::shutter;
-    shutterMsg.msg.shutter = {in_request.frameNumber, std::chrono::system_clock::now().time_since_epoch().count()};
+    aidl::android::hardware::camera::device::ShutterMsg shutter;
+    shutter.frameNumber = in_request.frameNumber;
+    shutter.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    aidl::android::hardware::camera::device::NotifyMsg shutterMsg =
+        aidl::android::hardware::camera::device::NotifyMsg::make<
+            aidl::android::hardware::camera::device::NotifyMsg::Tag::shutter>(shutter);
     if (mFrameworkCallback) mFrameworkCallback->notify({shutterMsg});
     
     // The actual processing and result submission will be triggered by pushNewFrame -> frameProcessingLoop.
@@ -244,7 +248,7 @@ void HalCameraSession::pushNewFrame(const uint8_t* uvcData, size_t uvcDataSize,
             ALOGW("pushNewFrame: Streams not configured for %s. Dropping frame.", mCameraId.c_str());
             return;
         }
-        if (mFrameQueue.size() < kNumStreamBuffers * 2) { 
+        if (mFrameQueue.size() < static_cast<size_t>(kNumStreamBuffers * 2)) { 
             mFrameQueue.push(std::move(frame));
         } else {
             ALOGW("Frame queue full for %s (size %zu), dropping incoming UVC frame.", mCameraId.c_str(), mFrameQueue.size());
@@ -411,13 +415,13 @@ void HalCameraSession::frameProcessingLoop() {
         if (unlockErr != NO_ERROR) {
             ALOGE("Failed to unlock AHardwareBuffer on %s: %s (%d)", mCameraId.c_str(), strerror(-unlockErr), unlockErr);
             // Data might be corrupt or not written. Consider this frame lost.
-            if(releaseFenceFd != -1) close(releaseFenceFd);
+            if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
 
         if (!conversionOk) {
             ALOGE("Frame conversion failed for %s. Dropping.", mCameraId.c_str());
-            if(releaseFenceFd != -1) close(releaseFenceFd); // Close fence if conversion failed post-unlock attempt
+            if(releaseFenceFd != -1) ::close(releaseFenceFd); // Close fence if conversion failed post-unlock attempt
             // TODO: Notify error (buffer status error?)
             continue;
         }
@@ -435,14 +439,14 @@ void HalCameraSession::frameProcessingLoop() {
         const native_handle_t* anativeHandle = AHardwareBuffer_getNativeHandle(outputHwBuffer);
         if (!anativeHandle) {
             ALOGE("Failed to get native handle from AHardwareBuffer for %s", mCameraId.c_str());
-            if(releaseFenceFd != -1) close(releaseFenceFd);
+            if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
         // Framework expects to receive a new handle it takes ownership of.
         native_handle_t* clonedHalHandle = native_handle_clone(anativeHandle);
         if (!clonedHalHandle) {
             ALOGE("Failed to clone native_handle for %s", mCameraId.c_str());
-             if(releaseFenceFd != -1) close(releaseFenceFd);
+             if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
         streamBuffer.buffer.set(clonedHalHandle); // ScopedHandle takes ownership of clonedHandle
