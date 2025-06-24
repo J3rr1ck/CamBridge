@@ -2,7 +2,7 @@
 #include "hal_camera_device.h" // To call parentDevice->closeSession()
 #include <utils/Log.h>
 #include <vector> // For std::vector from JNI call
-#include <aidl/android/hardware/camera/device/CameraBufferStatus.h>
+#include <aidl/android/hardware/camera/device/BufferStatus.h>
 #include <aidl/android/hardware/camera/device/StreamBuffer.h>
 #include <chrono> // For std::chrono::system_clock
 #include <android/hardware_buffer.h> // For AHardwareBuffer
@@ -424,7 +424,7 @@ void HalCameraSession::frameProcessingLoop() {
         aidl::android::hardware::camera::device::StreamBuffer streamBuffer;
         streamBuffer.streamId = targetStream.id;
         streamBuffer.bufferId = static_cast<int64_t>(currentBufferIdx); // Framework uses this to map to its gralloc ID
-        streamBuffer.status = aidl::android::hardware::camera::device::CameraBufferStatus::OK;
+        streamBuffer.status = aidl::android::hardware::camera::device::BufferStatus::OK;
         
         const native_handle_t* anativeHandle = AHardwareBuffer_getNativeHandle(outputHwBuffer);
         if (!anativeHandle) {
