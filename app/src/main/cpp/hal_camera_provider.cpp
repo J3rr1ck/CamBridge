@@ -224,5 +224,21 @@ std::shared_ptr<HalCameraSession> HalCameraProvider::getActiveSessionForCameraId
     return nullptr;
 }
 
+// Implement correct AIDL interface methods:
+ndk::ScopedAStatus HalCameraProvider::getVendorTags(std::vector<::aidl::android::hardware::camera::common::VendorTagSection>* _aidl_return) {
+    _aidl_return->clear();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraProvider::getConcurrentCameraIds(std::vector<::aidl::android::hardware::camera::provider::ConcurrentCameraIdCombination>* _aidl_return) {
+    _aidl_return->clear();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraProvider::isConcurrentStreamCombinationSupported(const std::vector<::aidl::android::hardware::camera::provider::CameraIdAndStreamCombination>& in_configs, bool* _aidl_return) {
+    *_aidl_return = false;
+    return ndk::ScopedAStatus::ok();
+}
+
 } // namespace cambridge
 } // namespace android

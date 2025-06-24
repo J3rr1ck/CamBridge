@@ -3,6 +3,7 @@
 #include "hal_camera_provider.h" 
 #include <utils/Log.h>
 #include <hardware/camera3.h>     // For camera3_device_ops_t::construct_default_request_settings
+#include <camera/CameraMetadata.h>
 
 // Define a LOG_TAG for this file
 #undef LOG_TAG

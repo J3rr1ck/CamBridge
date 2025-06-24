@@ -131,7 +131,7 @@ Java_com_android_cambridge_UvcCameraManager_pushVideoFrameNative(
     std::string cameraIdStr(cameraIdStrChars);
     env->ReleaseStringUTFChars(javaCameraId, cameraIdStrChars);
 
-    std::shared_ptr<HalCameraSession> session = (*providerPtr)->getActiveSessionForCameraId(cameraIdStr);
+    std::shared_ptr<android::cambridge::HalCameraSession> session = (*providerPtr)->getActiveSessionForCameraId(cameraIdStr);
 
     if (!session) {
         // LOGD might be too noisy if frames arrive before session is ready

@@ -48,10 +48,10 @@ public:
     std::shared_ptr<HalCameraSession> getActiveSessionForCameraId(const std::string& cameraId);
 
     // Add stubs for all required pure virtual methods from the AIDL base class
-    ndk::ScopedAStatus getVendorTags(const std::string& cameraId, std::map<std::string, std::string>* _aidl_return) override;
+    ndk::ScopedAStatus getVendorTags(std::vector<::aidl::android::hardware::camera::common::VendorTagSection>* _aidl_return) override;
     ndk::ScopedAStatus notifyDeviceStateChange(int64_t in_deviceState) override;
-    ndk::ScopedAStatus getConcurrentCameraIds(std::vector<std::string>* _aidl_return) override;
-    ndk::ScopedAStatus isConcurrentStreamCombinationSupported(const std::string& cameraId1, const std::string& cameraId2, bool* _aidl_return) override;
+    ndk::ScopedAStatus getConcurrentCameraIds(std::vector<::aidl::android::hardware::camera::provider::ConcurrentCameraIdCombination>* _aidl_return) override;
+    ndk::ScopedAStatus isConcurrentStreamCombinationSupported(const std::vector<::aidl::android::hardware::camera::provider::CameraIdAndStreamCombination>& in_configs, bool* _aidl_return) override;
 
 private:
     std::shared_ptr<ICameraProviderCallback> mFrameworkCallback;
