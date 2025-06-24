@@ -2,6 +2,7 @@ package com.android.cambridge;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.MediaCodecInfo;
 import android.util.Log;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -35,7 +36,7 @@ public class MjpegDecoder {
             mCodec = MediaCodec.createDecoderByType(MIME_TYPE_MJPEG);
             MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE_MJPEG, width, height);
             // Request flexible YUV420 output, common for AHardwareBuffer
-            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaFormat.COLOR_FormatYUV420Flexible);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
             
             mCodec.configure(format, null /* surface */, null /* crypto */, 0 /* flags: decoder */);
             mCodec.start();
