@@ -63,7 +63,7 @@ HalCameraSession::~HalCameraSession() {
 
 ndk::ScopedAStatus HalCameraSession::configureStreams(
         const StreamConfiguration& in_requestedStreams,
-        HalStreamConfiguration* _aidl_return) {
+        std::vector<HalStream>* _aidl_return) {
     ALOGI("configureStreams called for camera %s", mCameraId.c_str());
     std::lock_guard<std::mutex> lock(mFrameMutex);
 
@@ -74,7 +74,7 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
         if (buffer) AHardwareBuffer_release(buffer);
     }
     mHardwareBuffers.clear();
-    _aidl_return->streams.clear();
+    _aidl_return->clear();
 
 
     if (in_requestedStreams.streams.empty()) {
@@ -151,8 +151,8 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
         mHardwareBuffers[i] = buffer; 
     }
     
-    _aidl_return->streams.push_back(halStream);
-    mConfiguredHalStreams.assign({halStream});
+    _aidl_return->push_back(halStream);
+    mConfiguredHalStreams.assign({_aidl_return->front()});
 
     // Update buffer size based on actual configured stream
     mOutputBufferSize = (reqStream.width * reqStream.height * 3) / 2; // For YCBCR_420_888

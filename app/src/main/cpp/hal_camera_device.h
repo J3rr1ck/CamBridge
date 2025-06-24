@@ -3,7 +3,7 @@
 #include <aidl/android/hardware/camera/device/BnCameraDevice.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceSession.h>
-#include <camera_metadata_hidden.h> // For camera_metadata_t utilities if needed
+  #include <system/camera_metadata.h> // For camera_metadata_t utilities if needed
 #include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h> // For CameraMetadata type
 
 // Forward declare HalCameraProvider and HalCameraSession

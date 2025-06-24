@@ -61,7 +61,7 @@ public:
 
     // --- AIDL ICameraDeviceSession methods ---
     ndk::ScopedAStatus configureStreams(const StreamConfiguration& in_requestedStreams,
-                                        HalStreamConfiguration* _aidl_return) override;
+                                        std::vector<HalStream>* _aidl_return) override;
     ndk::ScopedAStatus processCaptureRequest(const CaptureRequest& in_request, 
                                              int32_t* _aidl_return_submittedRequests) override; // Assuming this signature
     ndk::ScopedAStatus flush() override;
