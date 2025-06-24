@@ -34,10 +34,8 @@ using ::aidl::android::hardware::camera::device::Stream;
 using ::aidl::android::hardware::camera::device::CaptureRequest;
 using ::aidl::android::hardware::camera::device::CaptureResult;
 using ::aidl::android::hardware::camera::device::NotifyMsg;
-using ::aidl::android::hardware::camera::device::MsgType;
-using ::aidl::android::hardware::camera::device::ErrorCode;
 using ::aidl::android::hardware::graphics::common::PixelFormat;
-using ::android::hardware::camera::common::CameraMetadata;
+using ::aidl::android::hardware::camera::device::HalStream;
 
 
 // Simple structure for raw frames coming from JNI

@@ -4,7 +4,7 @@
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceSession.h>
 #include <system/camera_metadata.h> // Use the public camera metadata API
-#include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h> // For CameraMetadata type
+// #include <android/hardware/camera/common/include/android/hardware/camera/common/CameraMetadata.h> // REMOVED: Not available in AOSP, use <system/camera_metadata.h> if needed
 
 // Forward declare HalCameraProvider and HalCameraSession
 namespace android {
@@ -15,7 +15,6 @@ class HalCameraSession;  // Will be implemented next
 using ::aidl::android::hardware::camera::device::ICameraDeviceCallback;
 using ::aidl::android::hardware::camera::device::ICameraDeviceSession;
 using ::aidl::android::hardware::camera::device::StreamConfiguration;
-using ::aidl::android::hardware::camera::common::CameraMetadata;
 
 
 class HalCameraDevice : public ::aidl::android::hardware::camera::device::BnCameraDevice {
