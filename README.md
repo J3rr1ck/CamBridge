@@ -57,10 +57,15 @@ PRODUCT_PACKAGES += \
 
 ### Native Component (JNI)
 
-CamBridge includes a native JNI component (`libcambridge_jni.so`) defined in `app/Android.bp` and implemented in `app/src/main/jni/`. This component is crucial for bridging the Java application layer with the native Camera HAL.
+CamBridge includes a native JNI component (`libcambridge_jni.so`) defined in `app/Android.bp`. This component is crucial for bridging the Java application layer with the native Camera HAL.
 
-- **`cambridge_jni.cpp`**: Provides the JNI entry points callable from the Java side.
-- **`virtual_camera_hal.cpp`**: Implements the core logic for creating and managing a virtual camera device. It currently interacts with the Camera HAL using older **HAL1-style interfaces** (`camera_module_t`, `camera_device_t`, etc.).
+- **`cambridge_jni.cpp`**: Provides the JNI entry points callable from the Java side. It acts as the bridge to the C++ AIDL HAL service.
+- **C++ AIDL HAL Implementation**:
+    - **`hal_camera_provider.cpp`**: Implements the `ICameraProvider` AIDL interface. It's responsible for enumerating camera devices and managing their status.
+    - **`hal_camera_device.cpp`**: Implements the `ICameraDevice` AIDL interface. It handles device-specific configurations, camera characteristics, and opening camera sessions.
+    - **`hal_camera_session.cpp`**: Implements the `ICameraDeviceSession` AIDL interface. It manages stream configuration, processes capture requests, and handles the frame pipeline from the UVC camera to the Android framework.
+
+These C++ components collectively implement the camera HAL using modern AIDL interfaces, allowing interaction with the Android CameraService via the Camera2 API.
 
 ### Platform Permissions
 
@@ -92,13 +97,13 @@ Since this is a system-level application requiring platform signing and native c
 
 1. Build and flash your custom Android ROM including CamBridge
 2. Connect a UVC camera to your Android device
-3. Monitor system logs (`logcat`) for messages from `CamBridgeService`, `VirtualCameraHAL`, etc., to verify detection and initialization
+3. Monitor system logs (`logcat`) for messages from `CamBridgeService`, `HalCameraProvider`, `HalCameraDevice`, `HalCameraSession`, etc., to verify detection and initialization
 4. Open a camera app (e.g., Google Camera, or a test app) and check if the "Virtual UVC Camera" appears in the camera selector
 5. Test basic streaming functionality
 
 ## TODO / Future Improvements
 
-- [ ] **HAL Migration:** Migrate the native implementation from Camera HAL1 to a modern version (HAL3+ using AIDL or HIDL) for better performance, features, and compatibility with the Camera2 API.
+- [X] **HAL Migration:** Migrated the native implementation from Camera HAL1 to AIDL-based Camera HAL (ICameraProvider, ICameraDevice, ICameraDeviceSession) for Camera2 API compatibility.
 - [ ] **Runtime Testing & Debugging:** Thoroughly test and debug the entire pipeline on target hardware. Verify frame timestamps, buffer handling, and callback invocation.
 - [ ] **UVC Feature Support:** Implement handling for more UVC controls (brightness, contrast, focus, zoom, etc.) and expose them through the HAL.
 - [ ] **Performance Optimization:** Profile the frame processing pipeline (USB read -> JNI -> HAL delivery) and optimize bottlenecks. Implement efficient format conversion if needed (e.g., MJPEG -> NV21/YV12).
@@ -116,7 +121,7 @@ Since this is a system-level application requiring platform signing and native c
 - Must be built as part of the Android platform source
 - Updates typically require system OTA updates
 - Compatibility may vary depending on the specific UVC camera implementation
-- Current implementation uses older Camera HAL1 interfaces
+- Implements a Camera HAL based on AIDL interfaces.
 
 ## License
 
