@@ -87,8 +87,13 @@ cc_library_shared {
     header_libs: [
         "libhardware_headers", 
         "libnativehelper_header_only", 
+        // "camera_metadata_headers", // Removed, assuming libcamera_metadata provides them
         // Headers for AHardwareBuffer are part of NDK, usually implicitly available
         // "libandroid_headers", // Could be a source for some platform headers if needed
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.graphics.common-V3-ndk",
     ],
     export_include_dirs: ["src/main/cpp"], // So other modules can include HAL headers
 }
