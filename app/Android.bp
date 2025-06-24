@@ -87,7 +87,6 @@ cc_library_shared {
     header_libs: [
         "libhardware_headers", 
         "libnativehelper_header_only", 
-        "camera_metadata_headers",
         // Headers for AHardwareBuffer are part of NDK, usually implicitly available
         // "libandroid_headers", // Could be a source for some platform headers if needed
     ],
