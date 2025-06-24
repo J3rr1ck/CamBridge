@@ -3,7 +3,6 @@
 #include <aidl/android/hardware/camera/device/BnCameraDeviceSession.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
 #include <aidl/android/hardware/camera/device/StreamConfiguration.h>
-#include <aidl/android/hardware/camera/device/HalStreamConfiguration.h>
 #include <aidl/android/hardware/camera/device/CaptureRequest.h>
 #include <aidl/android/hardware/camera/device/CaptureResult.h>
 #include <aidl/android/hardware/camera/device/NotifyMsg.h>
@@ -31,9 +30,7 @@ class HalCameraDevice;
 using ::aidl::android::hardware::camera::device::BnCameraDeviceSession;
 using ::aidl::android::hardware::camera::device::ICameraDeviceCallback;
 using ::aidl::android::hardware::camera::device::StreamConfiguration;
-using ::aidl::android::hardware::camera::device::HalStreamConfiguration;
 using ::aidl::android::hardware::camera::device::Stream;
-using ::aidl::android::hardware::camera::device::HalStream;
 using ::aidl::android::hardware::camera::device::CaptureRequest;
 using ::aidl::android::hardware::camera::device::CaptureResult;
 using ::aidl::android::hardware::camera::device::NotifyMsg;
