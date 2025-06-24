@@ -25,7 +25,11 @@ constexpr int32_t SERVICE_ERROR_CAMERA_IN_USE = -EBUSY;   // Or a custom enum
 constexpr int32_t SERVICE_ERROR_DEVICE_UNAVAILABLE = -ENODEV; // Or a custom enum
 
 
-HalCameraProvider::HalCameraProvider() : mVirtualCameraId("0"), mIsDeviceAvailable(false), mCameraDeviceInstance(nullptr) {
+HalCameraProvider::HalCameraProvider()
+    : mFrameworkCallback(nullptr),
+      mVirtualCameraId("0"),
+      mCameraDeviceInstance(nullptr),
+      mIsDeviceAvailable(false) {
     ALOGI("HalCameraProvider instance created. VirtualCameraId: %s", mVirtualCameraId.c_str());
 }
 

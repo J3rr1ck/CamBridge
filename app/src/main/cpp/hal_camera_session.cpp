@@ -2,7 +2,6 @@
 #include "hal_camera_device.h" // To call parentDevice->closeSession()
 #include <utils/Log.h>
 #include <vector> // For std::vector from JNI call
-#include <android/hardware/camera2/BnCameraDeviceUser.h> // For error codes
 #include <aidl/android/hardware/camera/device/CameraBufferStatus.h>
 #include <aidl/android/hardware/camera/device/StreamBuffer.h>
 #include <chrono> // For std::chrono::system_clock
