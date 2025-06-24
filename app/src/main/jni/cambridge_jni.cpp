@@ -66,14 +66,14 @@ Java_com_android_cambridge_VirtualCameraProviderService_cleanupNative(
         return;
     }
     
-    LOGI("Cleaning up HalCameraProvider with context: %lld", providerContext);
+    LOGI("Cleaning up HalCameraProvider with context: %ld", providerContext);
     std::shared_ptr<HalCameraProvider>* providerPtr = reinterpret_cast<std::shared_ptr<HalCameraProvider>*>(providerContext);
     
     if (providerPtr && *providerPtr) {
         (*providerPtr)->cleanup(); // Call any internal cleanup
         // The shared_ptr itself will be deleted, decrementing ref count.
     } else {
-        LOGE("cleanupNative: Provider context %lld did not yield a valid provider.", providerContext);
+        LOGE("cleanupNative: Provider context %ld did not yield a valid provider.", providerContext);
     }
     
     delete providerPtr; // Delete the heap-allocated shared_ptr holder
@@ -91,7 +91,7 @@ Java_com_android_cambridge_UvcCameraManager_notifyHalProviderDeviceAvailable(
     }
     std::shared_ptr<HalCameraProvider>* providerPtr = reinterpret_cast<std::shared_ptr<HalCameraProvider>*>(providerContext);
     if (!providerPtr || !(*providerPtr)) {
-         LOGE("notifyHalProviderDeviceAvailable: Provider context %lld did not yield a valid provider.", providerContext);
+         LOGE("notifyHalProviderDeviceAvailable: Provider context %ld did not yield a valid provider.", providerContext);
         return;
     }
 
@@ -119,7 +119,7 @@ Java_com_android_cambridge_UvcCameraManager_pushVideoFrameNative(
     }
     std::shared_ptr<HalCameraProvider>* providerPtr = reinterpret_cast<std::shared_ptr<HalCameraProvider>*>(providerContext);
      if (!providerPtr || !(*providerPtr)) {
-         LOGE("pushVideoFrameNative: Provider context %lld did not yield a valid provider.", providerContext);
+         LOGE("pushVideoFrameNative: Provider context %ld did not yield a valid provider.", providerContext);
         return JNI_FALSE;
     }
 

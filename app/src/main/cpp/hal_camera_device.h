@@ -39,7 +39,7 @@ public:
     ndk::ScopedAStatus setTorchMode(bool in_enabled) override;
     ndk::ScopedAStatus turnOnTorchWithStrengthLevel(int32_t in_torchStrength) override;
     ndk::ScopedAStatus getTorchStrengthLevel(int32_t* _aidl_return) override;
-    ndk::ScopedAStatus dumpState(const ::ndk::ScopedFileDescriptor& in_fd) override;
+    ndk::ScopedAStatus dumpState(const ::ndk::ScopedFileDescriptor& in_fd);
     ndk::ScopedAStatus isStreamCombinationSupported(const StreamConfiguration& in_streams, 
                                                     bool* _aidl_return) override;
     

@@ -2,7 +2,6 @@
 #include "hal_camera_session.h" // Will be created next
 #include "hal_camera_provider.h" 
 #include <utils/Log.h>
-#include <camera_metadata_tags.h> // For ANDROID_* metadata tags
 #include <hardware/camera3.h>     // For camera3_device_ops_t::construct_default_request_settings
 
 // Define a LOG_TAG for this file

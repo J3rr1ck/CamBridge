@@ -47,6 +47,12 @@ public:
     void onDeviceClosed(const std::string& cameraId); // Called by HalCameraDevice
     std::shared_ptr<HalCameraSession> getActiveSessionForCameraId(const std::string& cameraId);
 
+    // Add stubs for all required pure virtual methods from the AIDL base class
+    ndk::ScopedAStatus getVendorTags(const std::string& cameraId, std::map<std::string, std::string>* _aidl_return) override;
+    ndk::ScopedAStatus notifyDeviceStateChange(int64_t in_deviceState) override;
+    ndk::ScopedAStatus getConcurrentCameraIds(std::vector<std::string>* _aidl_return) override;
+    ndk::ScopedAStatus isConcurrentStreamCombinationSupported(const std::string& cameraId1, const std::string& cameraId2, bool* _aidl_return) override;
+
 private:
     std::shared_ptr<ICameraProviderCallback> mFrameworkCallback;
     std::string mVirtualCameraId; // e.g., "0"
