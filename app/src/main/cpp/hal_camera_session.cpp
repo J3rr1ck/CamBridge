@@ -162,68 +162,37 @@ ndk::ScopedAStatus HalCameraSession::configureStreams(
 }
 
 ndk::ScopedAStatus HalCameraSession::processCaptureRequest(
-        const CaptureRequest& in_request, int32_t* _aidl_return_submittedRequests) {
-        // ALOGD for verbose logging
+    const std::vector<CaptureRequest>& in_requests,
+    const std::vector<BufferCache>& /*in_cachesToRemove*/,
+    int32_t* _aidl_return) {
     if (mIsClosing) {
-        ALOGE("processCaptureRequest on closing session for camera %s, frame %lld", mCameraId.c_str(), (long long)in_request.frameNumber);
-        *_aidl_return_submittedRequests = 0;
-        aidl::android::hardware::camera::device::ErrorMsg errorMsg;
-        errorMsg.frameNumber = in_request.frameNumber;
-        errorMsg.errorStreamId = mConfiguredHalStreams.empty() ? -1 : mConfiguredHalStreams[0].id;
-        errorMsg.errorCode = aidl::android::hardware::camera::device::ErrorCode::ERROR_REQUEST;
-        aidl::android::hardware::camera::device::NotifyMsg notify =
-            aidl::android::hardware::camera::device::NotifyMsg::make<
-                aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
-        if (mFrameworkCallback) mFrameworkCallback->notify({notify});
+        ALOGE("processCaptureRequest on closing session for camera %s", mCameraId.c_str());
+        *_aidl_return = 0;
         return ndk::ScopedAStatus::fromServiceSpecificError(-ENODEV);
     }
-    
-    std::lock_guard<std::mutex> lock(mFrameMutex); // Protects mStreamsConfigured, mConfiguredHalStreams
+    std::lock_guard<std::mutex> lock(mFrameMutex);
     if (!mStreamsConfigured || mConfiguredHalStreams.empty() || mHardwareBuffers.empty()) {
-        ALOGE("processCaptureRequest: Streams not configured or no buffers for %s, frame %lld.", mCameraId.c_str(), (long long)in_request.frameNumber);
-        aidl::android::hardware::camera::device::ErrorMsg errorMsg;
-        errorMsg.frameNumber = in_request.frameNumber;
-        errorMsg.errorStreamId = mActiveStreamInfo.id != 0 ? mActiveStreamInfo.id : (mConfiguredHalStreams.empty() ? -1 : mConfiguredHalStreams[0].id);
-        errorMsg.errorCode = aidl::android::hardware::camera::device::ErrorCode::ERROR_REQUEST;
-        aidl::android::hardware::camera::device::NotifyMsg notify =
-            aidl::android::hardware::camera::device::NotifyMsg::make<
-                aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
-        if (mFrameworkCallback) mFrameworkCallback->notify({notify});
-        *_aidl_return_submittedRequests = 0; 
+        ALOGE("processCaptureRequest: Streams not configured or no buffers for %s.", mCameraId.c_str());
+        *_aidl_return = 0;
         return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
     }
-
-    if (in_request.outputBuffers.empty()) {
-        ALOGE("processCaptureRequest: No output buffers in request for frame %lld on %s", (long long)in_request.frameNumber, mCameraId.c_str());
-        aidl::android::hardware::camera::device::ErrorMsg errorMsg;
-        errorMsg.frameNumber = in_request.frameNumber;
-        errorMsg.errorStreamId = mConfiguredHalStreams[0].id;
-        errorMsg.errorCode = aidl::android::hardware::camera::device::ErrorCode::ERROR_REQUEST;
-        aidl::android::hardware::camera::device::NotifyMsg notify =
+    int submitted = 0;
+    for (const auto& req : in_requests) {
+        if (req.outputBuffers.empty()) {
+            ALOGE("processCaptureRequest: No output buffers in request for frame %d on %s", req.frameNumber, mCameraId.c_str());
+            continue;
+        }
+        // Only handle output, ignore inputBuffer (not supported)
+        aidl::android::hardware::camera::device::ShutterMsg shutter;
+        shutter.frameNumber = req.frameNumber;
+        shutter.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        aidl::android::hardware::camera::device::NotifyMsg shutterMsg =
             aidl::android::hardware::camera::device::NotifyMsg::make<
-                aidl::android::hardware::camera::device::NotifyMsg::Tag::error>(errorMsg);
-        if (mFrameworkCallback) mFrameworkCallback->notify({notify});
-        *_aidl_return_submittedRequests = 0;
-        return ndk::ScopedAStatus::fromServiceSpecificError(-EX_ILLEGAL_ARGUMENT);
+                aidl::android::hardware::camera::device::NotifyMsg::Tag::shutter>(shutter);
+        if (mFrameworkCallback) mFrameworkCallback->notify({shutterMsg});
+        submitted++;
     }
-
-    // For this simple HAL, we assume the request is for the single configured stream.
-    // A more complex HAL would check in_request.outputBuffers[0].streamId.
-
-    aidl::android::hardware::camera::device::ShutterMsg shutter;
-    shutter.frameNumber = in_request.frameNumber;
-    shutter.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-    aidl::android::hardware::camera::device::NotifyMsg shutterMsg =
-        aidl::android::hardware::camera::device::NotifyMsg::make<
-            aidl::android::hardware::camera::device::NotifyMsg::Tag::shutter>(shutter);
-    if (mFrameworkCallback) mFrameworkCallback->notify({shutterMsg});
-    
-    // The actual processing and result submission will be triggered by pushNewFrame -> frameProcessingLoop.
-    // This HAL doesn't queue requests internally in the traditional sense for matching.
-    // The frame number from the request is used when the next frame is processed.
-    // This is a simplification.
-
-    *_aidl_return_submittedRequests = 1; 
+    *_aidl_return = submitted;
     return ndk::ScopedAStatus::ok();
 }
 
@@ -449,10 +418,10 @@ void HalCameraSession::frameProcessingLoop() {
              if(releaseFenceFd != -1) ::close(releaseFenceFd);
             continue;
         }
-        streamBuffer.buffer = aidl::android::hardware::common::NativeHandle(clonedHalHandle);
+        streamBuffer.buffer = aidl::android::hardware::common::NativeHandle::fromNativeHandle(clonedHalHandle);
 
         if (releaseFenceFd != -1) {
-            streamBuffer.releaseFence = std::vector<ndk::ScopedFileDescriptor>{ndk::ScopedFileDescriptor(releaseFenceFd)};
+            streamBuffer.releaseFence = aidl::android::hardware::common::NativeHandle::fromFd(releaseFenceFd);
         }
         // streamBuffer.acquireFence should be set if HAL needs framework to wait before reading.
         // For CPU processed buffer, usually not needed, or set to -1.
