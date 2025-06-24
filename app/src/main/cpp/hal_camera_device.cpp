@@ -365,5 +365,48 @@ std::shared_ptr<HalCameraSession> HalCameraDevice::getActiveSession() {
     return mCurrentSession;
 }
 
+ndk::ScopedAStatus HalCameraDevice::getPhysicalCameraCharacteristics(const std::string& in_physicalCameraId, CameraMetadata* _aidl_return) {
+    // This HAL doesn't support physical camera characteristics
+    // Physical cameras are used for multi-camera setups (e.g., wide + tele)
+    ALOGI("getPhysicalCameraCharacteristics called for physical camera: %s", in_physicalCameraId.c_str());
+    if (_aidl_return) {
+        _aidl_return->metadata.clear();
+    }
+    return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
+}
+
+ndk::ScopedAStatus HalCameraDevice::getResourceCost(CameraResourceCost* _aidl_return) {
+    // Return a default resource cost for this camera
+    if (_aidl_return) {
+        _aidl_return->resourceCost = 100; // Default cost value
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus HalCameraDevice::openInjectionSession(const std::shared_ptr<ICameraDeviceCallback>& in_callback, std::shared_ptr<ICameraInjectionSession>* _aidl_return) {
+    // This HAL doesn't support injection sessions
+    // Injection sessions are used for testing and debugging
+    ALOGI("openInjectionSession called but not supported");
+    if (_aidl_return) {
+        _aidl_return->reset();
+    }
+    return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
+}
+
+ndk::ScopedAStatus HalCameraDevice::turnOnTorchWithStrengthLevel(int32_t in_torchStrength) {
+    // This HAL doesn't support torch functionality
+    ALOGI("turnOnTorchWithStrengthLevel called with strength: %d but not supported", in_torchStrength);
+    return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
+}
+
+ndk::ScopedAStatus HalCameraDevice::getTorchStrengthLevel(int32_t* _aidl_return) {
+    // This HAL doesn't support torch functionality
+    ALOGI("getTorchStrengthLevel called but not supported");
+    if (_aidl_return) {
+        *_aidl_return = 0;
+    }
+    return ndk::ScopedAStatus::fromServiceSpecificError(-ENOSYS);
+}
+
 } // namespace cambridge
 } // namespace android

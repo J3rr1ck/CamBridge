@@ -229,18 +229,34 @@ std::shared_ptr<HalCameraSession> HalCameraProvider::getActiveSessionForCameraId
 }
 
 // Implement correct AIDL interface methods:
+ndk::ScopedAStatus HalCameraProvider::notifyDeviceStateChange(int64_t in_deviceState) {
+    // This method is called when the device state changes (e.g., device rotation, fold state)
+    // For this simplified HAL, we don't need to handle device state changes
+    ALOGI("notifyDeviceStateChange called with device state: %ld", in_deviceState);
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus HalCameraProvider::getVendorTags(std::vector<::aidl::android::hardware::camera::common::VendorTagSection>* _aidl_return) {
-    _aidl_return->clear();
+    // This HAL doesn't define any vendor tags
+    if (_aidl_return) {
+        _aidl_return->clear();
+    }
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus HalCameraProvider::getConcurrentCameraIds(std::vector<::aidl::android::hardware::camera::provider::ConcurrentCameraIdCombination>* _aidl_return) {
-    _aidl_return->clear();
+    // This HAL doesn't support concurrent camera usage
+    if (_aidl_return) {
+        _aidl_return->clear();
+    }
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus HalCameraProvider::isConcurrentStreamCombinationSupported(const std::vector<::aidl::android::hardware::camera::provider::CameraIdAndStreamCombination>& in_configs, bool* _aidl_return) {
-    *_aidl_return = false;
+    // This HAL doesn't support concurrent stream combinations
+    if (_aidl_return) {
+        *_aidl_return = false;
+    }
     return ndk::ScopedAStatus::ok();
 }
 

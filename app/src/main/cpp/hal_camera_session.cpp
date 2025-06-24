@@ -26,7 +26,8 @@ const int UVC_FORMAT_YUYV = 1;
 
 // Forward declaration for the JNI bridge function from cambridge_jni.cpp
 // This avoids needing a separate header if it's only used here.
-extern std::vector<uint8_t> callJavaMjpegDecoder(const uint8_t* mjpeg_data, size_t mjpeg_size, int width, int height);
+// Note: This function is defined in cambridge_jni.cpp and should be linked properly
+std::vector<uint8_t> callJavaMjpegDecoder(const uint8_t* mjpeg_data, size_t mjpeg_size, int width, int height);
 
 
 HalCameraSession::HalCameraSession(
