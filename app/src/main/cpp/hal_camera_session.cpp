@@ -27,6 +27,7 @@ const int UVC_FORMAT_YUYV = 1;
 // Forward declaration for the JNI bridge function from cambridge_jni.cpp
 // This avoids needing a separate header if it's only used here.
 // Note: This function is defined in cambridge_jni.cpp and should be linked properly
+// The function is defined in global namespace, so we need to declare it here
 std::vector<uint8_t> callJavaMjpegDecoder(const uint8_t* mjpeg_data, size_t mjpeg_size, int width, int height);
 
 
@@ -326,7 +327,7 @@ void HalCameraSession::frameProcessingLoop() {
                     rawFrame.width, rawFrame.height, desc.width, desc.height, mCameraId.c_str());
             } else {
                 ALOGI("Attempting MJPEG decode for %dx%d frame via JNI for %s", rawFrame.width, rawFrame.height, mCameraId.c_str());
-                std::vector<uint8_t> yuvData = callJavaMjpegDecoder(rawFrame.data.data(), rawFrame.data.size(), rawFrame.width, rawFrame.height);
+                std::vector<uint8_t> yuvData = ::callJavaMjpegDecoder(rawFrame.data.data(), rawFrame.data.size(), rawFrame.width, rawFrame.height);
                 if (!yuvData.empty()) {
                     // The YUV data from MediaCodec (COLOR_FormatYUV420Flexible) could be NV12, NV21, YU12 (I420), YV12.
                     // We need to copy it correctly into the AHardwareBuffer which is AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420.
