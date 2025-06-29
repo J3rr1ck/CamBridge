@@ -1,0 +1,61 @@
+//
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+cc_library_shared {
+    name: "camera.uvc",
+    vendor: true,
+    // Or soc_specific: true, depending on where it's placed and build environment
+    // owner: "YourNameOrCompany", // Optional: specify owner
+
+    srcs: [
+        "UvcCameraFactory.cpp",
+        "UvcCamera3Device.cpp",
+        "V4L2Device.cpp",
+        "FormatConverter.cpp",
+        // Add other .cpp files as they are created
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libutils",
+        "libcutils",
+        "libhardware",
+        "libcamera_metadata",
+        "libjpeg", // For libjpeg-turbo, actual name might vary slightly
+        "libyuv",  // If libyuv is used
+        // "libusb-1.0", // If libusb is used as a fallback or for specific controls
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fexceptions", // If using C++ exceptions
+    ],
+
+    cppflags: [
+        "-std=c++17", // Or a newer standard if appropriate
+    ],
+
+    // Export include directories for other modules that might link against this
+    export_include_dirs: ["."],
+
+    // If you have specific version scripts or other linker flags
+    // ldflags: [],
+
+    // Init rc file for the service if this HAL runs as a separate process
+    // init_rc: ["camera_uvc_hal.rc"], // Example
+}

@@ -1,0 +1,35 @@
+# Sample SELinux rules for UVC Camera HAL
+# These rules would typically be added to the device's sepolicy vendor directory,
+# e.g., device/vendor/product/sepolicy/vendor/hal_camera_uvc.te
+# or integrated into existing camera HAL .te files.
+
+# The domain running the HAL (e.g., cameraserver or a specific camera provider service domain)
+# For this example, using 'hal_camera_default' which is often used by cameraserver
+# or a generic camera provider service. If your HAL runs in a unique domain,
+# replace 'hal_camera_default'.
+
+# Allow access to /dev/video* devices
+allow hal_camera_default video_device:chr_file { read write open ioctl getattr map lock };
+
+# Allow creating sockets (might be needed for some IPC or netlink like uevent)
+allow hal_camera_default self:socket create_socket_perms_no_ioctl;
+
+# Allow reading camera related properties
+# allow hal_camera_default vendor_camera_prop:file read_file_perms;
+# allow hal_camera_default default_prop:file read_file_perms;
+
+
+# If the HAL needs to find other services (though typically it's a provider)
+# allow hal_camera_default servicemanager:binder find;
+
+# If the HAL registers itself as a service (less common for .so modules, more for binderized HALs)
+# type hal_camera_uvc_service,      service_manager_type;
+# type hal_camera_uvc_exec,         exec_type, file_type, vendor_file_type;
+# init_daemon_domain(hal_camera_uvc)
+# add_service(hal_camera_uvc, hal_camera_uvc_service)
+
+
+# Note: These are minimal. A full SELinux policy would require careful analysis
+# of denials during testing (audit2allow).
+# Ensure the file contexts for /dev/video* are correctly labeled as video_device.
+# Example: /dev/video([0-9]*) u:object_r:video_device:s0

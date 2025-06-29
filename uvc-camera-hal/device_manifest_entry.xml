@@ -1,0 +1,18 @@
+<!-- This is a sample entry. Integrate into your device's main manifest.xml -->
+<manifest version="1.0" type="device">
+    <hal format="hidl"> <!-- Or "aidl" if using an AIDL Camera Provider -->
+        <name>android.hardware.camera.provider</name>
+        <transport>hwbinder</transport>
+        <version>2.4</version> <!-- Match Camera HAL_MODULE_API_VERSION (e.g., 2.4 for camera3_device_t version 3.3-3.4) -->
+        <interface>
+            <name>ICameraProvider</name>
+            <!-- The instance name "uvc" should match how the camera service expects to find this provider.
+                 This often aligns with the HAL module ID if it's not "camera".
+                 If your camera.uvc.so is named to be loaded by a generic "external" provider service,
+                 the instance name might be different (e.g. "external/0").
+                 For a direct named service, "uvc" or a similar unique name is used.
+            -->
+            <instance>uvc</instance>
+        </interface>
+    </hal>
+</manifest>
