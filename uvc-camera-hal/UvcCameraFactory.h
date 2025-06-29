@@ -32,7 +32,7 @@ class V4L2Device;
 struct UvcCameraInfo {
     std::string device_path; // e.g., /dev/video0
     std::string card_name;   // From v4l2_capability
-    // Add other static info if needed, like USB VID/PID
+    std::string bus_info;    // Persistent identifier (e.g., USB bus path)
     int camera_id;           // HAL camera ID
 };
 
@@ -66,8 +66,14 @@ private:
     // bool mHotplugThreadRunning;
 
     android::Mutex mLock;
-    std::vector<std::unique_ptr<UvcCamera3Device>> mCameras;
-    std::vector<UvcCameraInfo> mCameraInfoList;
+    std::vector<std::unique_ptr<UvcCamera3Device>> mCameras; // Indexed by current HAL ID
+    std::vector<UvcCameraInfo> mCameraInfoList; // Info about currently active cameras, also indexed by current HAL ID
+
+    // For stable ID mapping
+    std::map<std::string, int> mBusInfoToHalIdMap; // bus_info -> assigned HAL ID
+    std::vector<bool> mHalIdAvailable;             // Tracks if a HAL ID slot is free (max MAX_CAMERAS)
+    static const int MAX_CAMERAS = 4;              // Max supported cameras by this HAL instance
+
 
     const camera_module_callbacks_t* mCallbacks;
 
@@ -75,6 +81,9 @@ private:
     std::thread mHotplugThread;
     std::atomic<bool> mHotplugThreadRunning;
     void hotplugThreadLoop();
+    // For inotify (conceptual, not fully implemented here)
+    // int mInotifyFd;
+    // int mInotifyWd;
 
 
     static UvcCameraFactory& getInstance();
